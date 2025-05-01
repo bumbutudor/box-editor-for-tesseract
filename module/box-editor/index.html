@@ -5,7 +5,7 @@
   <meta charset="utf-8" class="force-dark-theme">
   <meta http-equiv="X-UA-Compatible" content="IE=edge">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title localization-key="webpageTitle">Box Editor | RTS to Latin Transliteration</title>
+  <title>OCR Dataset Editor</title>
 
   <!-- jQuery (necessary for Bootstrap's JavaScript plugins) -->
   <!-- <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.12.4/jquery.min.js"></script> -->
@@ -66,27 +66,22 @@
     <div class="ui basic horizontal segments">
       <div class="ui basic horizontally fitted segment">
         <h1 class="ui header">
-          <span localization-key="webpageBoxEditorHeroHeading">RTS to Latin</span>
-          <div class="sub header"><span localization-key="webpageBoxEditorHeroHeadingSubHeader">Transliteration Service</span> <span class="ui orange text" localization-key="webpageBoxEditorHeroHeadingBetaText"></span></div>
+          OCR Dataset Editor
         </h1>
       </div>
       <div class="ui basic horizontally fitted compact segment">
-        <div id="navigationMenu" class="ui right secondary menu">
-          <a href="../../module/playground" class="item" localization-key="appNamePalayground">
-            Playground
-          </a>
-          <a class="active item" localization-key="appNameBoxEditor">
+        
+        <div id="navigationMenu" class="ui menu">
+          <!-- <a class="active item" localization-key="appNameBoxEditor">
             Box Editor
-          </a>
-          <a href="../../module/words-pairing" class="item" localization-key="appNameWordsPairing">
-            Words Pairing
-          </a>
+          </a> -->
+            <a id="fileButton" class="item">
+              File
+            </a>
+       
+  
           <a id="settingsButton" data-variation="basic" data-position="bottom center" class="item tooltip-trigger">
-            <i class="fitted icons">
-              <i class="large fitted cog icon"></i>
-              <i class="top right corner orange circle icon updateNotification" data-release-date="2024-05-27"
-                data-expire-notification="28"></i>
-            </i>
+            Settings
           </a>
           <div class="ui flowing popup">
             <p localization-key="tooltipOpenSettings"></p>
@@ -94,92 +89,7 @@
         </div>
       </div>
     </div>
-    <!-- <div class="ui placeholder segment my-dropzone"></div> -->
-    <div class="ui blurring secondary segment my-dropzone">
-      <div class="ui inverted dimmer">
-        <div class="content">
-          <h2 class="ui inverted icon header">
-            <i class="file upload icon"></i>
-            <span localization-key="dimmerDropzoneHeader">Drop the image / box pair here!</span>
-          </h2>
-        </div>
-      </div>
-      <div class="ui two column stackable grid">
-        <div class="eight wide column">
-          <h4 class="ui dividing header" localization-key="uploadFilesSectionHeader">Upload Files</h4>
-          <form class="ui form">
-            <div class="two fields">
-              <div class="field">
-                <div class="ui useSampleImage flowing center aligned popup">
-                  <h4 class="ui header" localization-key="useSamplePopupHeader">Use Sample Image</h4>
-                  <div>
-                    <a class="helpSettingsPopup">
-                      <i class="fitted cog circle icon"></i>
-                      <span localization-key="settingsName">Settings</span>
-                      <i class="fitted caret right icon"></i>
-                      <span localization-key="settingsHelpPaneName">Help</span>
-                    </a>
-                  </div>
-                </div>
-                <label for="imageFile" localization-key="uploadFilesSectionImageLabel">Image</label>
-                <input class="ui invisible file input form-control" type="file" disabled id="imageFile" name="imageFile"
-                  accept="image/*, .pdf" />
-                <label for="imageFile" class="ui small fluid button" id="imageFileButton">
-                  <i class="file upload icon"></i>
-                  <span localization-key="uploadFilesSectionChooseFileButtonLabel">
-                    Choose File
-                  </span>
-                </label>
-              </div>
-              <div class="field">
-                <label for="boxFile" localization-key="uploadFilesSectionBoxFileLabel">Box File</label>
-                <input class="ui invisible file input" type="file" disabled id="boxFile" name="boxFile" accept=".box" />
-                <label for="boxFile" class="ui disabled small fluid button" id="boxFileButton">
-                  <i class="file upload icon"></i>
-                  <span localization-key="uploadFilesSectionChooseFileButtonLabel">
-                    Choose File
-                  </span>
-                </label>
-              </div>
-            </div>
-          </form>
-        </div>
-        <div class="eight wide column">
-          <h4 class="ui dividing header">
-            <span localization-key="downloadFilesSectionHeader">
-              Download Files
-            </span>
-            <span class="tooltip-trigger" data-position="right center">
-              <i id="unsavedChanges" class="ui tiny red asterisk icon"></i>
-            </span>
-            <div class="ui popup" localization-key="tooltipUnsavedChanges"></div>
-          </h4>
-          <form class="ui equal width form">
-            <div class="two fields">
-              <div class="field">
-                <label for="download" localization-key="downloadFilesSectionBoxFileLabel">Box File</label>
-                <button id="downloadBoxFileButton" name="download" tabindex="0" class="disabled small fluid ui button">
-                  <i class="file download icon"></i>
-                  <span localization-key="downloadFilesSectionDownloadButtonLabel">
-                    Download
-                  </span>
-                </button>
-              </div>
-              <div class="field">
-                <label for="download" localization-key="downloadFilesSectionGroundTruthLabel">Ground Truth</label>
-                <button id="downloadGroundTruthButton" name="download" tabindex="0"
-                  class="disabled small fluid ui button">
-                  <i class="file download icon"></i>
-                  <span localization-key="downloadFilesSectionDownloadButtonLabel">
-                    Download
-                  </span>
-                </button>
-              </div>
-            </div>
-          </form>
-        </div>
-      </div>
-    </div>
+
     <div id="taggingSegment" class="ui disable secondary segment">
       <div id="custom-controls" class="ui basic fitted vertical segment">
         <div class="ui wrapping spaced buttons">
@@ -412,37 +322,110 @@
         </div>
       </div>
     </div>
-    <div class="ui container">
-      <div class="ui basic fitted segments">
-        <div class="ui horizontal basic segments">
-          <div class="ui basic fitted segment">
-            <div class="ui horizontal small list">
-              <div class="item">
-                <span localization-key="bylineWithCollon">
-                  By:
-                </span>
-                <a href="https://penteliuc.com">Dr. Marius E. Penteliuc</a>
-              </div>
-              <!-- <div class="item">
-                Originally: <a href="https://johanjunkka.com">Johan Junkka</a>
-              </div> -->
-            </div>
-          </div>
-          <div class="ui right aligned basic fitted segment">
-            <a href="https://github.com/mariuspenteliuc/box-editor-for-tesseract" target="_blank">
-              <i class="github icon"></i>
-            </a>
-          </div>
-        </div>
-        <div class="ui basic horizontally fitted segment">
-          <!-- <p>This work was supported by a grant of the Romanian Ministry of Research, Innovation and Digitization, CCCDI
-            -
-            UEFISCDI,
-            project number PN-III-P2-2.1-PED-2021-0693, within PNCDI III.</p> -->
-        </div>
+
+       
       </div>
     </div>
   </div>
+    <!-- after the settings modal… -->
+  <div id="fileUploadModal" class="ui small modal">
+    <i class="close icon"></i>
+    <div class="header" localization-key="uploadFilesSectionHeader">
+      Upload / Download
+    </div>
+    <div class="content">
+
+            <div class="ui blurring secondary segment my-dropzone">
+              <div class="ui inverted dimmer">
+                <div class="content">
+                  <h2 class="ui inverted icon header">
+                    <i class="file upload icon"></i>
+                    <span localization-key="dimmerDropzoneHeader">Drop the image / box pair here!</span>
+                  </h2>
+                </div>
+              </div>
+              <div class="ui two column stackable grid">
+                <div class="eight wide column">
+                  <h4 class="ui dividing header" localization-key="uploadFilesSectionHeader">Upload Files</h4>
+                  <form class="ui form">
+                    <div class="two fields">
+                      <div class="field">
+                        <div class="ui useSampleImage flowing center aligned popup">
+                          <h4 class="ui header" localization-key="useSamplePopupHeader">Use Sample Image</h4>
+                          <div>
+                            <a class="helpSettingsPopup">
+                              <i class="fitted cog circle icon"></i>
+                              <span localization-key="settingsName">Settings</span>
+                              <i class="fitted caret right icon"></i>
+                              <span localization-key="settingsHelpPaneName">Help</span>
+                            </a>
+                          </div>
+                        </div>
+                        <label for="imageFile" localization-key="uploadFilesSectionImageLabel">Image</label>
+                        <input class="ui invisible file input form-control" type="file" disabled id="imageFile" name="imageFile"
+                          accept="image/*, .pdf" />
+                        <label for="imageFile" class="ui small fluid button" id="imageFileButton">
+                          <i class="file upload icon"></i>
+                          <span localization-key="uploadFilesSectionChooseFileButtonLabel">
+                            Choose File
+                          </span>
+                        </label>
+                      </div>
+                      <div class="field">
+                        <label for="boxFile" localization-key="uploadFilesSectionBoxFileLabel">Box File</label>
+                        <input class="ui invisible file input" type="file" disabled id="boxFile" name="boxFile" accept=".box" />
+                        <label for="boxFile" class="ui disabled small fluid button" id="boxFileButton">
+                          <i class="file upload icon"></i>
+                          <span localization-key="uploadFilesSectionChooseFileButtonLabel">
+                            Choose File
+                          </span>
+                        </label>
+                      </div>
+                    </div>
+                  </form>
+                </div>
+                <div class="eight wide column">
+                  <h4 class="ui dividing header">
+                    <span localization-key="downloadFilesSectionHeader">
+                      Download Files
+                    </span>
+                    <span class="tooltip-trigger" data-position="right center">
+                      <i id="unsavedChanges" class="ui tiny red asterisk icon"></i>
+                    </span>
+                    <div class="ui popup" localization-key="tooltipUnsavedChanges"></div>
+                  </h4>
+                  <form class="ui equal width form">
+                    <div class="two fields">
+                      <div class="field">
+                        <label for="download" localization-key="downloadFilesSectionBoxFileLabel">Box File</label>
+                        <button id="downloadBoxFileButton" name="download" tabindex="0" class="disabled small fluid ui button">
+                          <i class="file download icon"></i>
+                          <span localization-key="downloadFilesSectionDownloadButtonLabel">
+                            Download
+                          </span>
+                        </button>
+                      </div>
+                      <div class="field">
+                        <label for="download" localization-key="downloadFilesSectionGroundTruthLabel">Ground Truth</label>
+                        <button id="downloadGroundTruthButton" name="download" tabindex="0"
+                          class="disabled small fluid ui button">
+                          <i class="file download icon"></i>
+                          <span localization-key="downloadFilesSectionDownloadButtonLabel">
+                            Download
+                          </span>
+                        </button>
+                      </div>
+                    </div>
+                  </form>
+                </div>
+              </div>
+            </div>
+    </div>
+    <div class="actions">
+      <div class="ui cancel button">Close</div>
+    </div>
+  </div>
+
   <div class="ui settings modal ui grid">
     <i class="inside close icon"></i>
     <div class="header" localization-key="settingsMenuHeroHeader">
@@ -487,14 +470,7 @@
             Help
           </span>
         </a>
-        <a class="bottom attached item" data-tab="about-section">
-          <i class="grey info circle icon"></i>
-          <i class="normal orange certificate icon updateNotification" data-release-date="2024-05-27"
-            data-expire-notification="28"></i>
-          <span localization-key="settingsMenuSidebarAboutLabel">
-            About
-          </span>
-        </a>
+        
       </div>
     </div>
     <div id="mainSettingsPane" class="twelve wide column scrolling content">

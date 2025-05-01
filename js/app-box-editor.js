@@ -2966,7 +2966,7 @@ app.ready = async () => {
               return false;
             }
           }
-          handler.set.loadingState({main: true, buttons: true });
+          handler.set.loadingState({ main: true, buttons: true });
           var file;
           documentPages = [];
           const
@@ -3341,8 +3341,8 @@ app.ready = async () => {
           const
             results = await handler.ocr.detect(),
             textLines = results.data.lines;
-            if (!textLines.length) {
-              handler.set.loadingState({ buttons: false, main: false });
+          if (!textLines.length) {
+            handler.set.loadingState({ buttons: false, main: false });
             return false;
           }
 
@@ -3625,6 +3625,12 @@ app.ready = async () => {
   try {
     // Start the Magic
     await app.handler.initialize();
+
+    $('#fileButton').on('click', () => {
+      $('#fileUploadModal').modal('show');
+    });
+
+
     // reset errors count
     localStorage.removeItem(appSettings.localStorageKey + '-loading-error');
   } catch (error) {
