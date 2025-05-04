@@ -94,28 +94,28 @@
       <div id="custom-controls" class="ui basic fitted vertical segment">
         <div class="ui wrapping spaced buttons">
           <button id="invisiblesToggle" name="interface.toolbarActions.invisiblesToggle"
-            class="ui compact icon button tooltip-trigger" tabindex="0">
+            class="ui compact icon button tooltip-trigger" tabindex="0" title="Toggle invisibles">
             <i class="paragraph icon"></i>
           </button>
           <div class="ui popup">
             <span localization-key="tooltipInvisiblesToggle"></span>
           </div>
           <button id="redetectAllBoxes" name="interface.toolbarActions.detectAllLines"
-            class="ui compact icon disabled button tooltip-trigger" tabindex="0" data-position="top left">
+            class="ui compact icon disabled button tooltip-trigger" tabindex="0" data-position="top left" title="Redetect all boxes">
             <i class="magic icon"></i>
           </button>
           <div class="ui popup">
             <span localization-key="tooltipRedetectAllBoxes"></span>
           </div>
           <button id="regenerateTextSuggestions" name="interface.toolbarActions.detectAllBoxes"
-            class="ui compact icon disabled button tooltip-trigger" tabindex="0" data-position="top left">
+            class="ui compact icon disabled button tooltip-trigger" tabindex="0" data-position="top left" title="Regenerate text suggestions">
             <i class="sync icon"></i>
           </button>
           <div class="ui popup">
             <span localization-key="tooltipRegenerateTextSuggestions"></span>
           </div>
           <button id="regenerateTextSuggestionForSelectedBox" name="interface.toolbarActions.detectSelectedBox"
-            class="ui compact icon disabled button tooltip-trigger" tabindex="0" data-position="top left">
+            class="ui compact icon disabled button tooltip-trigger" tabindex="0" data-position="top left" title="Regenerate text suggestion for selected box">
             <i class="redo icon"></i>
           </button>
           <div class="ui popup">
@@ -123,7 +123,7 @@
           </div>
           <div id="ocrModelDropdown" name="interface.toolbarActions.languageModelDropdown"
             class="ui floating disabled compact dropdown labeled search icon button tooltip-trigger" spellcheck="false"
-            data-position="top left">
+            data-position="top left" title="Language model dropdown">
             <i class="world icon"></i>
             <span class="text" localization-key="languageModelRTS">Romanian Transitional Script</span>
             <div class="menu">
@@ -244,81 +244,87 @@
           </div>
         </div>
         <div id="page-navigation-controls" class="ui right floated compact buttons" style="display: none;">
-          <button id="previousPage" name="interface.toolbarActions.previousPage" class="ui compact icon button"><i
+          <button id="previousPage" name="interface.toolbarActions.previousPage" class="ui compact icon button" title="Previous page"><i
               class="left chevron icon"></i></button>
-          <button id="currentPage" name="interface.toolbarActions.currentPage" class="ui button">
+          <button id="currentPage" name="interface.toolbarActions.currentPage" class="ui button" title="Current page">
             <span localization-key="pageNavigationCurrentPageLabel">
               Page
             </span>
           </button>
-          <button id="nextPage" name="interface.toolbarActions.nextPage" class="ui compact icon button"><i
+          <button id="nextPage" name="interface.toolbarActions.nextPage" class="ui compact icon button" title="Next page"><i
               class="right chevron icon"></i></button>
         </div>
       </div>
       <div id="main-edit-area" class="ui basic fitted vertical segment">
-        <div class="ui maprow fitted disabled segment" id="mapid"></div>
         <div class="ui tiny disabled indicating progress" id="progressIndicator">
           <div class="bar"></div>
           <div class="label"></div>
         </div>
         <div id="positionSlider" class="ui small grey disabled labeled slider"></div>
-        <form class="ui big form colorized-output-form" id="updateTxt" spellcheck="false">
-          <div id="myInputContainer" class="disabled field">
-            <label class="col-sm-2 control-label" for="formtxt" id="txtlabel">&nbsp;</label>
-            <div id="myInputBackground" class="no-kerning colorized-output-field">&nbsp;</div>
+        <div class="ui two column stackable grid">
+          <div class="eight wide column">
+            <div class="ui maprow fitted disabled segment" id="mapid"></div>
           </div>
-          <div class="field">
-            <label class="col-sm-2 control-label" for="formtxt" id="txtlabel">
-              <span localization-key="formGroundTruthTextLabel">
-                Text
-              </span>
-              <span id="modelConfidenceScore" class="ui small text"></span>
-            </label>
-            <input disabled type="text" id="formtxt" class="no-kerning colorized-input-field" boxid="" name="txt"
-              value="">
-          </div>
-        </form>
-        <div id="highlighters-labels" class="ui horizontal list">
-        </div>
-        <div class="ui basic fitted segment">
-          <form id="formCoordinateFields" class="ui form" spellcheck="false">
-            <div class="four fields">
-              <div class="field">
-                <label for="x1" localization-key="coordinateFieldLeftLabel">Left</label>
-                <input disabled type="number" id="x1" class="box-coordinates" name="x1" value="">
+          <div class="eight wide column">
+            <form class="ui big form colorized-output-form" id="updateTxt" spellcheck="false">
+              <div id="myInputContainer" class="disabled field">
+                <label class="col-sm-2 control-label" for="formtxt" id="txtlabel">&nbsp;</label>
+                <div id="myInputBackground" class="no-kerning colorized-output-field">&nbsp;</div>
               </div>
               <div class="field">
-                <label for="y1" localization-key="coordinateFieldBottomLabel">Bottom</label>
-                <input disabled type="number" id="y1" class="box-coordinates" name="y1" value="">
+                <label class="col-sm-2 control-label" for="formtxt" id="txtlabel">
+                  <span localization-key="formGroundTruthTextLabel">
+                    Text
+                  </span>
+                  <span id="modelConfidenceScore" class="ui small text"></span>
+                </label>
+                <input disabled type="text" id="formtxt" class="no-kerning colorized-input-field" boxid="" name="txt"
+                  value="">
               </div>
-              <div class="field">
-                <label for="x2" localization-key="coordinateFieldRightLabel">Right</label>
-                <input disabled type="number" id="x2" class="box-coordinates" name="x2" value="">
-              </div>
-              <div class="field">
-                <label for="y2" localization-key="coordinateFieldTopLabel">Top</label>
-                <input disabled type="number" id="y2" class="box-coordinates" name="y2" value="">
-              </div>
+            </form>
+            <div id="highlighters-labels" class="ui horizontal list">
             </div>
-          </form>
-        </div>
-        <div id="virtualKeyboard" class="simple-keyboard"></div>
-        <div class="ui center aligned basic fitted segment">
-          <button id="previousBB" class="ui disabled left labeled icon button">
-            <i class="left chevron icon"></i>
-            <span localization-key="formNavigationPreviousLabel">
-              Previous
-            </span>
-          </button>
+            <div class="ui basic fitted segment">
+              <form id="formCoordinateFields" class="ui form" spellcheck="false">
+                <div class="four fields">
+                  <div class="field">
+                    <label for="x1" localization-key="coordinateFieldLeftLabel">Left</label>
+                    <input disabled type="number" id="x1" class="box-coordinates" name="x1" value="">
+                  </div>
+                  <div class="field">
+                    <label for="y1" localization-key="coordinateFieldBottomLabel">Bottom</label>
+                    <input disabled type="number" id="y1" class="box-coordinates" name="y1" value="">
+                  </div>
+                  <div class="field">
+                    <label for="x2" localization-key="coordinateFieldRightLabel">Right</label>
+                    <input disabled type="number" id="x2" class="box-coordinates" name="x2" value="">
+                  </div>
+                  <div class="field">
+                    <label for="y2" localization-key="coordinateFieldTopLabel">Top</label>
+                    <input disabled type="number" id="y2" class="box-coordinates" name="y2" value="">
+                  </div>
+                </div>
+              </form>
+            </div>
+            <div id="virtualKeyboard" class="simple-keyboard"></div>
+            <div class="ui center aligned basic fitted segment">
+              <button id="previousBB" class="ui disabled left labeled icon button" title="Previous">
+                <i class="left chevron icon"></i>
+                <span localization-key="formNavigationPreviousLabel">
+                  Previous
+                </span>
+              </button>
 
-          <!-- <button id="updateText" class="ui disabled button" type="submit">Update Line</button> -->
+              <!-- <button id="updateText" class="ui disabled button" type="submit">Update Line</button> -->
 
-          <button id="nextBB" class="ui disabled right labeled icon button">
-            <span localization-key="formNavigationNextLabel">
-              Next
-            </span>
-            <i class="right chevron icon"></i>
-          </button>
+              <button id="nextBB" class="ui disabled right labeled icon button" title="Next">
+                <span localization-key="formNavigationNextLabel">
+                  Next
+                </span>
+                <i class="right chevron icon"></i>
+              </button>
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -484,19 +490,19 @@
             <div class="ui list">
               <div class="item">
                 <div class="ui radio checkbox">
-                  <input type="radio" name="interface.appearance" value="light-theme">
+                  <input type="radio" name="interface.appearance" value="light-theme" aria-label="Light theme">
                   <label localization-key="settingsMenuAppAppearanceRadioButtonLabelLight">Light</label>
                 </div>
               </div>
               <div class="item">
                 <div class="ui radio checkbox">
-                  <input type="radio" name="interface.appearance" value="dark-theme">
+                  <input type="radio" name="interface.appearance" value="dark-theme" aria-label="Dark theme">
                   <label localization-key="settingsMenuAppAppearanceRadioButtonLabelDark">Dark</label>
                 </div>
               </div>
               <div class="item">
                 <div class="ui radio checkbox">
-                  <input type="radio" name="interface.appearance" value="match-device">
+                  <input type="radio" name="interface.appearance" value="match-device" aria-label="Match device theme">
                   <label localization-key="settingsMenuAppAppearanceRadioButtonLabelMatchDevice">Match Device</label>
                 </div>
               </div>
@@ -533,7 +539,8 @@
               <div class="item">
                 <div class="content">
                   <div class="ui checkbox">
-                    <input type="checkbox" name="interface.toolbarActions.invisiblesToggle">
+                    <input type="checkbox" name="interface.toolbarActions.invisiblesToggle"
+                      aria-label="Toggle between showing or hiding invisibles">
                     <label>
                       <i class="paragraph icon"></i>
                       <span localization-key="settingsMenuToolbarActionsCheckboxInvisibles">
@@ -546,7 +553,8 @@
               <div class="item">
                 <div class="content">
                   <div class="ui checkbox">
-                    <input type="checkbox" name="interface.toolbarActions.detectAllLines">
+                    <input type="checkbox" name="interface.toolbarActions.detectAllLines"
+                      aria-label="Detect all lines of text visible in the image">
                     <label>
                       <i class="magic icon"></i>
                       <span localization-key="settingsMenuToolbarActionsCheckboxDetectAllLines">
@@ -559,7 +567,8 @@
               <div class="item">
                 <div class="content">
                   <div class="ui checkbox">
-                    <input type="checkbox" name="interface.toolbarActions.detectAllBoxes">
+                    <input type="checkbox" name="interface.toolbarActions.detectAllBoxes"
+                      aria-label="Identify all characters for all text boxes">
                     <label>
                       <i class="sync icon"></i>
                       <span localization-key="settingsMenuToolbarActionsCheckboxIdentifyAllBoxes">
@@ -572,7 +581,8 @@
               <div class="item">
                 <div class="content">
                   <div class="ui checkbox">
-                    <input type="checkbox" name="interface.toolbarActions.detectSelectedBox">
+                    <input type="checkbox" name="interface.toolbarActions.detectSelectedBox"
+                      aria-label="Identify all characters for the selected text box">
                     <label>
                       <i class="redo icon"></i>
                       <span localization-key="settingsMenuToolbarActionsCheckboxIdentifySelectedBoxes">
@@ -585,7 +595,8 @@
               <div class="item">
                 <div class="content">
                   <div class="ui checkbox">
-                    <input type="checkbox" name="interface.toolbarActions.languageModelDropdown">
+                    <input type="checkbox" name="interface.toolbarActions.languageModelDropdown"
+                      aria-label="Language model dropdown selector">
                     <label>
                       <i class="world icon"></i>
                       <span localization-key="settingsMenuToolbarActionsCheckboxLanguageModelDropdown">
@@ -617,7 +628,8 @@
             <div class="ui list">
               <div class="item">
                 <div class="ui checkbox">
-                  <input type="checkbox" name="interface.editorTools.virtualKeyboard">
+                  <input type="checkbox" name="interface.editorTools.virtualKeyboard"
+                    aria-label="Use cyrillic virtual keyboard">
                   <label><span localization-key="settingsMenuEditorToolsCheckboxVirtualKeyboard">Use cyrillic virtual
                       keyboard</span> <span class="ui small italic orange text updateNotification"
                       data-release-date="2023-09-30" data-expire-notification="14"
@@ -626,35 +638,40 @@
               </div>
               <div class="item">
                 <div class="ui checkbox">
-                  <input type="checkbox" name="interface.editorTools.progressIndicator">
+                  <input type="checkbox" name="interface.editorTools.progressIndicator"
+                    aria-label="Indicate task progress">
                   <label localization-key="settingsMenuEditorToolsCheckboxProgressIndicatorLabel">Indicate task
                     progress</label>
                 </div>
               </div>
               <div class="item">
                 <div class="ui checkbox">
-                  <input type="checkbox" name="interface.editorTools.positionSlider">
+                  <input type="checkbox" name="interface.editorTools.positionSlider"
+                    aria-label="Show interactive position slider">
                   <label localization-key="settingsMenuEditorToolsCheckboxPositionSliderLabel">Show interactive position
                     slider</label>
                 </div>
               </div>
               <div class="item">
                 <div class="ui checkbox">
-                  <input type="checkbox" name="interface.editorTools.formCoordinateFields">
+                  <input type="checkbox" name="interface.editorTools.formCoordinateFields"
+                    aria-label="Display coordinate fields in form">
                   <label localization-key="settingsMenuEditorToolsCheckboxCoordinateFieldsLabel">Display coordinate
                     fields in form</label>
                 </div>
               </div>
               <div class="item">
                 <div class="ui checkbox">
-                  <input type="checkbox" name="interface.editorTools.unicodeInfoPopup">
+                  <input type="checkbox" name="interface.editorTools.unicodeInfoPopup"
+                    aria-label="Show Unicode info popup for selected characters">
                   <label localization-key="settingsMenuEditorToolsCheckboxCharInfoPopupLabel">Show Unicode info popup
                     for selected characters</label>
                 </div>
               </div>
               <div class="item">
                 <div class="ui checkbox">
-                  <input type="checkbox" name="interface.editorTools.confidenceScoreEnabled">
+                  <input type="checkbox" name="interface.editorTools.confidenceScoreEnabled"
+                    aria-label="Display confidence score for text suggestions">
                   <label localization-key="settingsMenuEditorToolsCheckboxConfidenceScoreLabel">Display confidence score
                     for text suggestions
                   </label>
@@ -690,14 +707,16 @@
             <div class="ui list">
               <div class="item">
                 <div class="ui master checkbox">
-                  <input type="checkbox" name="behavior.onImageLoad.detectAllLines">
+                  <input type="checkbox" name="behavior.onImageLoad.detectAllLines"
+                    aria-label="Detect all lines of text">
                   <label localization-key="settingsMenuOnImageLoadCheckboxDetectAllLines">Detect all lines of
                     text</label>
                 </div>
               </div>
               <div class="item">
                 <div class="ui child checkbox">
-                  <input type="checkbox" name="behavior.onImageLoad.includeTextForDetectedLines">
+                  <input type="checkbox" name="behavior.onImageLoad.includeTextForDetectedLines"
+                    aria-label="Include text suggestions for detected lines">
                   <label localization-key="settingsMenuOnImageLoadCheckboxIncludeTextSuggestions">Include text
                     suggestions for detected lines</label>
                 </div>
@@ -712,21 +731,24 @@
             <div class="ui list">
               <div class="item">
                 <div class="ui checkbox">
-                  <input type="checkbox" name="behavior.alerting.enableWarrningMessagesForDifferentFileNames">
+                  <input type="checkbox" name="behavior.alerting.enableWarrningMessagesForDifferentFileNames"
+                    aria-label="Warn when Box and image file names do not match">
                   <label localization-key="settingsMenuAlertsAndWarningsCheckboxFilenameNotMatchingLabel">Box and image
                     file names do not match</label>
                 </div>
               </div>
               <div class="item">
                 <div class="ui checkbox">
-                  <input type="checkbox" name="behavior.alerting.enableWarrningMessagesForUncommittedChanges">
+                  <input type="checkbox" name="behavior.alerting.enableWarrningMessagesForUncommittedChanges"
+                    aria-label="Warn when leaving or loading an image without first downloading">
                   <label localization-key="settingsMenuAlertsAndWarningsCheckboxChangesNotSavedLabel">Leaving or loading
                     an image without first downloading</label>
                 </div>
               </div>
               <div class="item">
                 <div class="ui checkbox">
-                  <input type="checkbox" name="behavior.alerting.enableWarrningMessagesForOverwritingDirtyData">
+                  <input type="checkbox" name="behavior.alerting.enableWarrningMessagesForOverwritingDirtyData"
+                    aria-label="Warn when Overwriting unsaved (not downloaded) data">
                   <label localization-key="settingsMenuAlertsAndWarningsCheckboxOverwritingUnsavedLabel">Overwriting
                     unsaved (not downloaded) data
                   </label>
@@ -754,14 +776,16 @@
             <div class="ui list">
               <div class="item">
                 <div class="ui checkbox">
-                  <input type="checkbox" name="behavior.workflow.autoDownloadBoxFileOnAllLinesComitted">
+                  <input type="checkbox" name="behavior.workflow.autoDownloadBoxFileOnAllLinesComitted"
+                    aria-label="Auto-download box file when all lines committed">
                   <label localization-key="settingsMenuWorkflowCheckboxAutoDownloadBoxFileLabel">Auto-download box file
                     when all lines committed</label>
                 </div>
               </div>
               <div class="item">
                 <div class="ui checkbox">
-                  <input type="checkbox" name="behavior.workflow.autoDownloadGroundTruthFileOnAllLinesComitted">
+                  <input type="checkbox" name="behavior.workflow.autoDownloadGroundTruthFileOnAllLinesComitted"
+                    aria-label="Auto-download ground truth file when all lines committed">
                   <label localization-key="settingsMenuWorkflowCheckboxAutoDownloadGroundTruthFileLabel">Auto-download
                     ground truth file when all lines committed</label>
                 </div>
@@ -776,7 +800,8 @@
             <div class="ui list">
               <div class="item">
                 <div class="ui disabled checkbox">
-                  <input disabled type="checkbox" name="behavior.keyboardShortcuts.keyboardShortcutsEnabled">
+                  <input disabled type="checkbox" name="behavior.keyboardShortcuts.keyboardShortcutsEnabled"
+                    aria-label="Use keyboard shortcuts">
                   <label localization-key="settingsMenuKeyboardShortcutsCheckboxUseShortcutsLabel">Use keyboard
                     shortcuts</label>
                 </div>
@@ -953,7 +978,7 @@
               </p>
               <a class="ui icon labeled button"
                 href="https://github.com/mariuspenteliuc/RTS-Keyboard-Layout/releases/latest/download/RTS.bundle.zip"
-                title="Download RTS Keyboard Layout Bundle">
+                title="Download RTS Keyboard Layout Bundle" rel="noopener">
                 <i class="file download icon"></i>
                 <span localization-key="settingsMenuRTSKeyboardLayoutDownloadLabel">
                   Download RTS Keyboard Layout
@@ -961,11 +986,11 @@
               </a>
               <picture class="ui image">
                 <source srcset="../../img/rts-keyboard-1-dark.png" media="(prefers-color-scheme: dark)">
-                <img src="../../img/rts-keyboard-1-light.png">
+                <img src="../../img/rts-keyboard-1-light.png" alt="RTS Keyboard Layout Preview 1">
               </picture>
               <picture class="ui image">
                 <source srcset="../../img/rts-keyboard-2-dark.png" media="(prefers-color-scheme: dark)">
-                <img src="../../img/rts-keyboard-2-light.png">
+                <img src="../../img/rts-keyboard-2-light.png" alt="RTS Keyboard Layout Preview 2">
               </picture>
             </div>
           </div>
@@ -981,7 +1006,8 @@
             <div class="ui list">
               <div class="item">
                 <div class="ui checkbox">
-                  <input type="checkbox" name="highlighter.textHighlighting.textHighlightingEnabled">
+                  <input type="checkbox" name="highlighter.textHighlighting.textHighlightingEnabled"
+                    aria-label="Use text highlighting">
                   <label localization-key="settingsMenuTextHighlightingCheckboxUseHighlighting">Use text
                     highlighting</label>
                 </div>
@@ -1148,7 +1174,7 @@
             <button id="resetAppSettings" class="ui left floating negative button"
               localization-key="settingsMenuHelpResetButtonLabel">Reset App...</button>
             <a class="ui right labeled icon button" target="_blank"
-              href="https://github.com/mariuspenteliuc/box-editor-for-tesseract/issues/new">
+              href="https://github.com/mariuspenteliuc/box-editor-for-tesseract/issues/new" rel="noopener">
               <i class="github icon"></i>
               <span localization-key="settingsMenuHelpReportIssueButtonLabel">
                 Report Issue
@@ -1189,19 +1215,19 @@
                 <tr>
                   <td localization-key="authorWithCollon">Author:</td>
                   <td class="right aligned"><a class="" href="https://penteliuc.com" target="_blank"
-                      title="Author's Website">Dr. Marius E. Penteliuc</a></td>
+                      title="Author's Website" rel="noopener">Dr. Marius E. Penteliuc</a></td>
                 </tr>
                 <tr>
                   <td localization-key="sourceCodeWithCollon">Source Code:</td>
                   <td class="right aligned"><a class=""
                       href="https://github.com/mariuspenteliuc/box-editor-for-tesseract" target="_blank" title="GitHub"
-                      localization-key="githubRepository">GitHub Repository</a></td>
+                      localization-key="githubRepository" rel="noopener">GitHub Repository</a></td>
                 </tr>
                 <tr>
                   <td localization-key="projectWebsiteWithCollon">Project Website:</td>
                   <td class="right aligned"><a class=""
                       href="https://transitional-romanian-transliteration.azurewebsites.net/" target="_blank"
-                      title="ROTLA Website" localization-key="rotlaTeamName">ROTLA Team</a></td>
+                      title="ROTLA Website" localization-key="rotlaTeamName" rel="noopener">ROTLA Team</a></td>
                 </tr>
                 <tr>
                   <td localization-key="customOCRModelWithCollon">Custom OCR Model:</td>
@@ -1212,7 +1238,7 @@
                 <tr>
                   <td localization-key="trainingDatasetWithCollon">Training Dataset:</td>
                   <td class="right aligned"><a class="" href="https://www.kaggle.com/datasets/mariuspenteliuc/rts-ocr"
-                      target="_blank" title="Training Dataset">Kaggle</a></td>
+                      target="_blank" title="Training Dataset" rel="noopener">Kaggle</a></td>
                 </tr>
               </tbody>
             </table>
