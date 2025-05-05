@@ -94,6 +94,7 @@ app.ready = async () => {
     $imageFileInputButton = $('#imageFileButton'),
     $downloadBoxFileButton = $('#downloadBoxFileButton'),
     $downloadGroundTruthFileButton = $('#downloadGroundTruthButton'),
+    $downloadDatasetButton = $('#downloadDatasetButton'),
     $previousBoxButton = $('#previousBB'),
     $nextBoxButton = $('#nextBB'),
     $groundTruthColorizedOutput = $('#myInputBackground'),
@@ -1940,10 +1941,17 @@ app.ready = async () => {
         if (options.boxDownloadButton) {
           $downloadBoxFileButton.html(icon.cloneNode(true));
           $downloadBoxFileButton.html(options.boxDownloadButton);
+          $downloadBoxFileButton.removeClass('disabled');
         }
         if (options.groundTruthDownloadButton) {
           $downloadGroundTruthFileButton.html(icon.cloneNode(true));
           $downloadGroundTruthFileButton.html(options.groundTruthDownloadButton);
+          $downloadGroundTruthFileButton.removeClass('disabled');
+        }
+        if (options.boxDownloadButton) {
+          $downloadDatasetButton.html(icon.cloneNode(true));
+          $downloadDatasetButton.html("Dataset.zip");
+          $downloadDatasetButton.removeClass('disabled');
         }
       },
       colorizedBackground: async () => {
@@ -3309,6 +3317,222 @@ app.ready = async () => {
         });
         boxDataInfo.setDirty(false);
       },
+      dataset: async () => {
+        if (!documentBoxData.length || !boxData.length) {
+          handler.notifyUser({
+            title: notificationTypes.warning.nothingToDownloadWarning.title,
+            message: 'notificationTypeNothingToDownloadWarningBody',
+            type: notificationTypes.warning.nothingToDownloadWarning.type,
+            class: notificationTypes.warning.nothingToDownloadWarning.class,
+          });
+          return false;
+        }
+        
+        // Make sure the latest text is submitted
+        handler.submitText();
+
+        // Check for uncommitted changes
+        if (lineDataInfo.isDirty()) {
+          handler.notifyUser({
+            title: notificationTypes.error.commitLineError.title,
+            message: 'notificationTypeCommitLineErrorBody',
+            type: notificationTypes.error.commitLineError.type,
+            class: notificationTypes.error.commitLineError.class,
+          });
+          return false;
+        }
+
+        // Sort boxes for consistent order
+        handler.sortAllBoxes();
+        
+        // Show loading notification
+        handler.notifyUser({
+          title: "Creating Dataset",
+          message: "Processing image and text data...",
+          type: "info",
+        });
+        
+        try {
+          // Create a new ZIP file
+          const zip = new JSZip();
+          
+          // Create the dataset folder structure
+          const datasetFolder = zip.folder("Dataset");
+          const imagesFolder = datasetFolder.folder("images");
+          const textFolder = datasetFolder.folder("text");
+          
+          // Pre-load the image before processing
+          const img = new Image();
+          
+          try {
+            await new Promise((resolve, reject) => {
+              img.onload = resolve;
+              img.onerror = (e) => reject(new Error("Failed to load image: " + e.message));
+              img.crossOrigin = "anonymous"; // Try to avoid CORS issues
+              img.src = image._image.src;
+            });
+            console.log("Image loaded successfully, dimensions:", img.width, "x", img.height);
+          } catch (imgError) {
+            console.error("Image loading error:", imgError);
+            handler.notifyUser({
+              title: 'Image Loading Error',
+              message: 'Failed to load the image: ' + imgError.message,
+              type: 'error',
+            });
+            return;
+          }
+          
+          // Create a single canvas for all cropping operations
+          const canvas = document.createElement('canvas');
+          const ctx = canvas.getContext('2d');
+          
+          // Get image dimensions
+          const imgWidth = img.width;
+          const imgHeight = img.height;
+          
+          // Calculate map bounds and scaling factors
+          const bounds = map.getBounds();
+          const mapWidth = bounds.getEast() - bounds.getWest();
+          const mapHeight = bounds.getNorth() - bounds.getSouth();
+          
+          // Log the scale factors
+          console.log("Image dimensions:", imgWidth, "x", imgHeight);
+          console.log("Map dimensions:", mapWidth, "x", mapHeight);
+          
+          // Since Leaflet's simple CRS uses pixel coordinates, we'll try using direct pixel coordinates
+          // The origin (0,0) in our case should be the top-left corner of the image
+          
+          // Process each box
+          let processedCount = 0;
+          let errorCount = 0;
+          
+          for (let i = 0; i < boxData.length; i++) {
+            const box = boxData[i];
+            const boxNumber = (i + 1).toString().padStart(3, '0');
+            
+            try {
+              // Get box dimensions
+              let x1 = box.x1;
+              let y1 = box.y1;
+              let x2 = box.x2;
+              let y2 = box.y2;
+              
+              // Calculate width and height
+              const width = Math.abs(x2 - x1);
+              const height = Math.abs(y2 - y1);
+              
+              // Log the box details
+              console.log(`Box ${boxNumber}: coords (${x1}, ${y1}) to (${x2}, ${y2}), size ${width}x${height}`);
+              
+              // Skip invalid boxes
+              if (width < 2 || height < 2) {
+                console.warn(`Box ${boxNumber} has invalid dimensions (${width}x${height}), skipping.`);
+                continue;
+              }
+              
+              // Make sure x1,y1 is the top-left corner and x2,y2 is the bottom-right
+              if (x1 > x2) {
+                [x1, x2] = [x2, x1];
+              }
+              
+              if (y1 > y2) {
+                [y1, y2] = [y2, y1];
+              }
+              
+              // Set canvas dimensions
+              canvas.width = width;
+              canvas.height = height;
+              
+              // Clear the canvas to ensure no previous data remains
+              ctx.clearRect(0, 0, width, height);
+              
+              // Draw the cropped image
+              ctx.drawImage(
+                img,
+                x1, y1,      // Source position
+                width, height, // Source dimensions
+                0, 0,        // Destination position
+                width, height // Destination dimensions
+              );
+              
+              // Convert the canvas to a PNG image
+              const imageData = canvas.toDataURL('image/png');
+              const base64Data = imageData.split(',')[1];
+              
+              // Add the image to the ZIP
+              imagesFolder.file(`line_${boxNumber}.png`, base64Data, {base64: true});
+              
+              // Add the corresponding text file with UTF-8 encoding
+              textFolder.file(`line_${boxNumber}.txt`, box.text, {binary: false});
+              
+              processedCount++;
+            } catch (error) {
+              console.error(`Error processing box ${boxNumber}:`, error, box);
+              errorCount++;
+            }
+          }
+          
+          // Log the results
+          console.log(`Processed ${processedCount} boxes successfully with ${errorCount} errors.`);
+          
+          if (processedCount === 0) {
+            handler.notifyUser({
+              title: 'Dataset Creation Failed',
+              message: `Could not process any boxes. Check console for errors.`,
+              type: 'error',
+            });
+            return;
+          }
+          
+          // Generate the ZIP file
+          console.log("Generating ZIP file...");
+          try {
+            const zipBlob = await zip.generateAsync({type: 'blob'});
+            console.log("ZIP generated successfully, size:", zipBlob.size, "bytes");
+            
+            // Create a download link
+            const downloadUrl = URL.createObjectURL(zipBlob);
+            const downloadAnchor = document.createElement('a');
+            downloadAnchor.href = downloadUrl;
+            downloadAnchor.download = `${imageFileName}_Dataset.zip`;
+            downloadAnchor.style.display = 'none';
+            
+            // Trigger the download
+            document.body.appendChild(downloadAnchor);
+            downloadAnchor.click();
+            document.body.removeChild(downloadAnchor);
+            
+            // Clean up
+            setTimeout(() => {
+              URL.revokeObjectURL(downloadUrl);
+              console.log("Download URL revoked");
+            }, 1000);
+            
+            // Notify the user
+            handler.notifyUser({
+              title: notificationTypes.info.fileDownloadedInfo.title,
+              message: `Downloaded dataset with ${processedCount} box regions`,
+              type: notificationTypes.info.fileDownloadedInfo.type,
+              class: notificationTypes.info.fileDownloadedInfo.class,
+            });
+          } catch (zipError) {
+            console.error("Error generating ZIP:", zipError);
+            handler.notifyUser({
+              title: 'ZIP Generation Error',
+              message: 'Failed to generate the ZIP file: ' + zipError.message,
+              type: 'error',
+            });
+          }
+          
+        } catch (error) {
+          console.error('Error creating dataset:', error);
+          handler.notifyUser({
+            title: 'Dataset Creation Error',
+            message: 'Failed to create the dataset: ' + error.message,
+            type: 'error',
+          });
+        }
+      },
     },
     generate: {
       boxFileContent: async (event) => {
@@ -3645,6 +3869,7 @@ app.ready = async () => {
       $previousBoxButton.on('click', handler.getPreviousBoxContentAndFill);
       $downloadBoxFileButton.on('click', handler.download.file.bind(handler.download, 'box'));
       $downloadGroundTruthFileButton.on('click', handler.download.file.bind(handler.download, 'ground-truth'));
+      $downloadDatasetButton.on('click', handler.download.dataset);
       $invisiblesToggleButton.on('click', handler.toggleInvisibles);
       $regenerateTextSuggestionForSelectedBoxButton.on('click', handler.generate.textSuggestion);
       $redetectAllBoxesButton.on('click', handler.generate.initialBoxes);

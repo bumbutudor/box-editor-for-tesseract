@@ -20,6 +20,7 @@
     "downloadFilesSectionBoxFileLabel": "Box File",
     "downloadFilesSectionDownloadButtonLabel": "Download",
     "downloadFilesSectionGroundTruthLabel": "Ground Truth",
+    "downloadFilesSectionDatasetLabel": "Dataset",
     "languageModelRTS": "Romanian Transitional Script (RTS)",
     "languageModelCustomLabel": "custom",
     "languageModelPickerPrompt": "Choose a language model",

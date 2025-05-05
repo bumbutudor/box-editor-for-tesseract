@@ -55,6 +55,9 @@
   <!-- JS Cookie -->
   <script src="https://cdn.jsdelivr.net/npm/js-cookie@3"></script>
 
+  <!-- JSZip (for dataset export) -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+
   <!-- Simple Virtual Keyboard -->
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/simple-keyboard@latest/build/css/index.css">
   <script src="https://cdn.jsdelivr.net/npm/simple-keyboard@latest/build/index.js"></script>
@@ -424,6 +427,16 @@
                           </span>
                         </button>
                       </div>
+                    </div>
+                    <div class="field">
+                      <label for="download" localization-key="downloadFilesSectionDatasetLabel">Dataset</label>
+                      <button id="downloadDatasetButton" name="download" tabindex="0"
+                        class="disabled small fluid ui button">
+                        <i class="file download icon"></i>
+                        <span localization-key="downloadFilesSectionDownloadButtonLabel">
+                          Download
+                        </span>
+                      </button>
                     </div>
                   </form>
                 </div>
