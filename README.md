@@ -22,7 +22,8 @@ Web app for editing Tesseract OCR LSTM box files in WordStr format, using [Tesse
 * Displays invisible characters;
 * Has built-in samples;
 * Remembers preferences;
-* Supports Dark Mode.
+* Supports Dark Mode;
+* Server-side processing for TIFF files and dataset creation.
 
 ### How to use
 1. Upload an image and wait for bounding boxes to be automatically generated.
@@ -34,9 +35,45 @@ Web app for editing Tesseract OCR LSTM box files in WordStr format, using [Tesse
 3. Type the ground-truth into the text field.
 4. Press `Return` or the `Next` button to commit the current text line.
 5. Download the edited box file using the `Download` button.
+6. Create a dataset with cropped images and corresponding text files using the `Dataset` button.
 
 Keyboard shortcuts are available to navigate forward `control + shift + down` and backward `control + shift + up`.
 NOTE: Keyboard shortcuts implementation is buggy and needs fixing.
+
+### Server Setup
+
+This application now includes a Node.js server for processing TIFF files and generating datasets, which greatly reduces browser resource usage.
+
+#### Installation
+
+```bash
+# Navigate to the server directory
+cd server
+
+# Install dependencies
+npm install
+```
+
+#### Running the Server
+
+```bash
+# Start in development mode
+npm run dev
+
+# Start in production mode
+npm start
+```
+
+The server will run on port 3000 by default. You can change this by setting the PORT environment variable.
+
+### Technical Details
+
+The server provides the following functionalities:
+- Processing TIFF files, including multi-page TIFF support
+- Generating datasets with cropped images and text files
+- Handling large images more efficiently
+
+For more details, see the [server README](server/README.md).
 
 ### Acknowledgment
 This work was supported by a grant from the Ministry of Research, Innovation and Digitization, CCCDI - UEFISCDI, project number PN-III-P2-2.1-PED-2021-0693, within PNCDI III.

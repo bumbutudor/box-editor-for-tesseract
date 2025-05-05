@@ -3043,50 +3043,61 @@ app.ready = async () => {
 
           let imageDataUrlOrBlobUrl;
           
-          // Procesare TIFF
+          // Procesare TIFF folosind serverul
           if (isTiff) {
-            if (typeof Tiff === 'undefined') {
-              handler.notifyUser({
-                title: notificationTypes.error.tiffConversionError.title,
-                message: 'Biblioteca Tiff.js nu este încărcată. Verificați includerea tiff.min.js.',
-                type: notificationTypes.error.tiffConversionError.type,
-                class: notificationTypes.error.tiffConversionError.class,
-              });
-              handler.set.loadingState({ main: false, buttons: false });
-              return false;
-            }
-            
             try {
-              // Citim fișierul TIFF și îl convertim în canvas
-              const reader = new FileReader();
-              const tiffData = await new Promise((resolve, reject) => {
-                reader.onload = e => resolve(e.target.result);
-                reader.onerror = reject;
-                reader.readAsArrayBuffer(file);
+              handler.notifyUser({
+                title: "Procesare TIFF",
+                message: "Se procesează fișierul TIFF pe server...",
+                type: "info",
               });
               
-              const tiff = new Tiff({ buffer: tiffData });
-              const canvas = tiff.toCanvas();
-              imageDataUrlOrBlobUrl = canvas.toDataURL('image/png');
+              // Trimitem fișierul TIFF la server pentru procesare
+              const formData = new FormData();
+              formData.append('image', file);
               
-              // Verificare pentru TIFF multi-pagină
-              if (tiff.countDirectory() > 1) {
-                // Creăm imagini pentru fiecare pagină
-                for (let i = 0; i < tiff.countDirectory(); i++) {
-                  tiff.setDirectory(i);
-                  const pageCanvas = tiff.toCanvas();
-                  const pageDataUrl = pageCanvas.toDataURL('image/png');
-                  
-                  // Convertim Data URL în Blob
-                  const byteString = atob(pageDataUrl.split(',')[1]);
-                  const mimeString = pageDataUrl.split(',')[0].split(':')[1].split(';')[0];
-                  const ab = new ArrayBuffer(byteString.length);
-                  const ia = new Uint8Array(ab);
-                  for (let j = 0; j < byteString.length; j++) {
-                    ia[j] = byteString.charCodeAt(j);
+              const response = await fetch('/api/upload-image', {
+                method: 'POST',
+                body: formData
+              });
+              
+              if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.error || 'Eroare la procesarea fișierului TIFF pe server');
+              }
+              
+              const responseData = await response.json();
+              console.log("Răspuns de la server pentru TIFF:", responseData);
+              
+              if (!responseData.success || !responseData.processedName) {
+                throw new Error('Răspunsul serverului nu conține informațiile necesare despre fișierul procesat');
+              }
+              
+              // Acum putem obține imaginea procesată
+              const tiffPreviewUrl = `/tiff-preview/${responseData.processedName}`;
+              console.log("Se încarcă imaginea de la:", tiffPreviewUrl);
+              
+              const imageResponse = await fetch(tiffPreviewUrl);
+              if (!imageResponse.ok) {
+                const errorText = await imageResponse.text();
+                console.error("Eroare la obținerea imaginii procesate:", errorText);
+                throw new Error(`Nu s-a putut obține imaginea procesată de pe server: ${imageResponse.status} ${imageResponse.statusText}`);
+              }
+              
+              const imageBlob = await imageResponse.blob();
+              imageDataUrlOrBlobUrl = URL.createObjectURL(imageBlob);
+              
+              // Verificare pentru TIFF multi-pagină la server
+              const pagesResponse = await fetch(`/api/tiff-pages/${responseData.fileName}`);
+              if (pagesResponse.ok) {
+                const pagesData = await pagesResponse.json();
+                if (pagesData.pages && pagesData.pages.length > 0) {
+                  documentPages = [];
+                  for (const pagePath of pagesData.pages) {
+                    const pageResponse = await fetch(pagePath);
+                    const pageBlob = await pageResponse.blob();
+                    documentPages.push(pageBlob);
                   }
-                  const blob = new Blob([ab], { type: mimeString });
-                  documentPages.push(blob);
                 }
               }
             } catch (error) {
@@ -3144,6 +3155,7 @@ app.ready = async () => {
           
           img.onload = () => {
             if (img.complete && img.naturalWidth > 0 && img.naturalHeight > 0) {
+              console.log(`Imagine încărcată cu succes: ${img.naturalWidth}x${img.naturalHeight}`);
               resolve(img);
             } else {
               console.error('Error: Image loaded but has invalid dimensions');
@@ -3153,6 +3165,21 @@ app.ready = async () => {
           
           img.onerror = (error) => {
             console.error('Error loading image:', error, 'Source:', source);
+            // Pentru debugging, vom afișa mai multe informații despre sursă
+            if (source.startsWith('blob:')) {
+              console.log('Încercare de fetch direct pentru a verifica blob-ul...');
+              fetch(source)
+                .then(resp => {
+                  console.log('Status blob:', resp.status, resp.statusText);
+                  return resp.blob();
+                })
+                .then(blob => {
+                  console.log('Blob valid:', blob.type, blob.size, 'bytes');
+                })
+                .catch(fetchError => {
+                  console.error('Eroare la verificarea blob-ului:', fetchError);
+                });
+            }
             reject(new Error(`Failed to load image from ${source}`));
           };
           
@@ -3161,11 +3188,14 @@ app.ready = async () => {
             img.crossOrigin = 'anonymous';
           }
           
+          console.log('Încărcare imagine din sursa:', typeof source === 'string' ? source.substring(0, 50) + '...' : 'non-string source');
+          
           // Set the source to trigger loading
           img.src = source;
           
           // For already cached images that might trigger the load event immediately
           if (img.complete && img.naturalWidth > 0 && img.naturalHeight > 0) {
+            console.log('Imagine deja în cache:', img.naturalWidth, 'x', img.naturalHeight);
             resolve(img);
           }
         });
@@ -3371,127 +3401,76 @@ app.ready = async () => {
         try {
           // Show loading notification
           handler.notifyUser({
-            title: "Creating Dataset",
-            message: "Processing image and text data...",
+            title: "Generare Dataset",
+            message: "Se procesează imaginea și datele de text pe server...",
             type: "info",
           });
           
-          // Create a new ZIP file
-          const zip = new JSZip();
-          
-          // Create the dataset folder structure
-          const datasetFolder = zip.folder("Dataset");
-          const imagesFolder = datasetFolder.folder("images");
-          const textFolder = datasetFolder.folder("text");
-          
-          // Verifică dacă imaginea este disponibilă
-          if (!image || !image._image) {
-            throw new Error("Imaginea nu este disponibilă pentru procesare");
-          }
-          
-          console.log("Original Image Height:", imageHeight);
-          console.log("Original Image Width:", imageWidth);
-          
-          // Creează o copie canvas a întregii imagini pentru a evita problemele cu URL-urile blob
-          const fullCanvas = document.createElement('canvas');
-          fullCanvas.width = image._image.naturalWidth || imageWidth;
-          fullCanvas.height = image._image.naturalHeight || imageHeight;
-          
-          const fullCtx = fullCanvas.getContext('2d');
-          
-          // Desenează imaginea pe canvas
-          fullCtx.drawImage(image._image, 0, 0);
-          console.log(`Imagine copiată în canvas: ${fullCanvas.width}x${fullCanvas.height}`);
-          
-          // Canvas pentru croparea individuală a fiecărui box
-          const cropCanvas = document.createElement('canvas');
-          const cropCtx = cropCanvas.getContext('2d');
-          
-          // Process each box
-          for (let i = 0; i < boxData.length; i++) {
-            const box = boxData[i];
-            const boxNumber = (i + 1).toString().padStart(3, '0');
+          // Convertim imaginea în Blob pentru a o trimite la server
+          const imageBlob = await new Promise(resolve => {
+            // Creăm un canvas temporar pentru a accesa datele imaginii
+            const canvas = document.createElement('canvas');
+            canvas.width = image._image.naturalWidth || imageWidth;
+            canvas.height = image._image.naturalHeight || imageHeight;
             
-            console.log(`Processing box ${boxNumber}:`, box);
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(image._image, 0, 0);
             
-            // Calculate source parameters for drawImage directly
-            // sx = top-left X in source image coordinates
-            const sx = Math.round(Math.min(box.x1, box.x2));
-            // sy = top-left Y in source image coordinates
-            // box.y2 este coordonata Leaflet pt marginea de sus (cea mai mică valoare Leaflet Y)
-            // imageHeight - box.y2 este coordonata Y în pixeli a marginii de sus (ceea ce ne trebuie pt drawImage)
-            const sy = Math.round(imageHeight - box.y2);
-            // sWidth = source width
-            const sWidth = Math.round(Math.abs(box.x2 - box.x1));
-            // sHeight = source height
-            const sHeight = Math.round(Math.abs(box.y1 - box.y2));
-            
-            // Skip boxes with zero or negative dimensions
-            if (sWidth <= 0 || sHeight <= 0) {
-              console.warn(`Skipping box ${boxNumber} with invalid dimensions: ${sWidth}x${sHeight}`);
-              continue;
-            }
-            
-            // Debug the calculated parameters
-            console.log(`Box ${boxNumber} Leaflet Coords:`, { x1: box.x1, y1: box.y1, x2: box.x2, y2: box.y2 });
-            console.log(`Box ${boxNumber} DrawImage Params:`, { sx, sy, sWidth, sHeight });
-            
+            canvas.toBlob(blob => {
+              resolve(blob);
+            }, 'image/png');
+          });
+          
+          // Pregătim datele pentru trimitere
+          const formData = new FormData();
+          formData.append('image', imageBlob, `${imageFileName}.png`);
+          formData.append('boxData', JSON.stringify(boxData));
+          formData.append('imageHeight', imageHeight);
+          formData.append('imageWidth', imageWidth);
+          formData.append('datasetName', imageFileName);
+          
+          console.log('Trimitere dataset cu următoarele date:', {
+            imageFileName: `${imageFileName}.png`,
+            imageSize: imageBlob.size,
+            numberOfBoxes: boxData.length,
+            imageHeight: imageHeight,
+            imageWidth: imageWidth
+          });
+          
+          // Folosim fetch pentru a trimite datele și a primi arhiva
+          const response = await fetch('/api/generate-dataset', {
+            method: 'POST',
+            body: formData
+          });
+          
+          if (!response.ok) {
+            let errorMessage = 'Eroare la generarea dataset-ului';
             try {
-              // Set canvas dimensions to match the box
-              cropCanvas.width = sWidth;
-              cropCanvas.height = sHeight;
-              
-              // Clear the canvas
-              cropCtx.clearRect(0, 0, cropCanvas.width, cropCanvas.height);
-              
-              // Draw the cropped portion onto the canvas - folosim fullCanvas ca sursă în loc de img
-              cropCtx.drawImage(
-                fullCanvas,
-                sx, sy,           // Source position (top-left corner of the crop)
-                sWidth, sHeight,  // Source dimensions (width and height of the crop)
-                0, 0,             // Destination position (place at 0,0 in the canvas)
-                sWidth, sHeight   // Destination dimensions (same size as source)
-              );
-              
-              // Convert the canvas to a PNG image
-              const imageData = cropCanvas.toDataURL('image/png');
-              const base64Data = imageData.split(',')[1];
-              
-              // Add the image to the ZIP
-              imagesFolder.file(`line_${boxNumber}.png`, base64Data, {base64: true});
-              
-              // Add the corresponding text file
-              textFolder.file(`line_${boxNumber}.txt`, box.text);
-            } catch (error) {
-              console.error(`Error processing box ${boxNumber} with sx=${sx}, sy=${sy}, sWidth=${sWidth}, sHeight=${sHeight}:`, error);
-              handler.notifyUser({
-                title: 'Cropping Error',
-                message: `Failed to crop box ${boxNumber}. Skipping. Error: ${error.message}`,
-                type: 'error',
-                class: 'error'
-              });
+              const errorData = await response.json();
+              errorMessage = errorData.error || errorMessage;
+            } catch (e) {
+              // Ignorăm erorile de parsare JSON
             }
+            throw new Error(errorMessage);
           }
           
-          // Generate the ZIP file
-          const zipBlob = await zip.generateAsync({type: 'blob'});
+          // Obținem blob-ul arhivei
+          const blob = await response.blob();
           
-          // Create a download link
-          const downloadUrl = URL.createObjectURL(zipBlob);
-          const downloadAnchor = document.createElement('a');
-          downloadAnchor.href = downloadUrl;
-          downloadAnchor.download = `${imageFileName}_Dataset.zip`;
-          downloadAnchor.style.display = 'none';
+          // Creăm un URL pentru blob și descărcăm fișierul
+          const url = window.URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.style.display = 'none';
+          a.href = url;
+          a.download = `${imageFileName}_Dataset.zip`;
+          document.body.appendChild(a);
+          a.click();
           
-          // Trigger the download
-          document.body.appendChild(downloadAnchor);
-          downloadAnchor.click();
-          document.body.removeChild(downloadAnchor);
+          // Facem curățare
+          window.URL.revokeObjectURL(url);
+          document.body.removeChild(a);
           
-          // Clean up
-          URL.revokeObjectURL(downloadUrl);
-          
-          // Notify the user
+          // Notificăm utilizatorul despre succes
           handler.notifyUser({
             title: notificationTypes.info.fileDownloadedInfo.title,
             message: appTranslations['notificationTypeFileDownloadedInfoBody']
@@ -3502,11 +3481,12 @@ app.ready = async () => {
           });
           
         } catch (error) {
-          console.error('Error creating dataset:', error);
+          console.error('Eroare la generarea dataset-ului:', error);
           handler.notifyUser({
-            title: 'Dataset Creation Error',
-            message: 'Failed to create the dataset: ' + error.message,
+            title: 'Eroare la Generarea Dataset-ului',
+            message: error.message || 'A apărut o eroare la generarea dataset-ului pe server.',
             type: 'error',
+            class: 'error'
           });
         }
       },

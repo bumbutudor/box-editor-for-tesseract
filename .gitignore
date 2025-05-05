@@ -28,3 +28,28 @@ Temporary Items
 
 # VS Code
 .vscode/*
+
+# Node.js
+node_modules/
+npm-debug.log
+yarn-debug.log
+yarn-error.log
+
+# Directoare de fișiere temporare server
+server/uploads/
+server/cropped/
+server/temp/
+server/downloads/
+server/processed/
+
+# Fișiere de mediu
+.env
+server/.env
+
+# Editoare
+.vscode/
+.idea/
+
+# Fișiere de sistem
+.DS_Store
+Thumbs.db

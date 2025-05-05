@@ -2,11 +2,25 @@
 <html lang="en">
 
 <head>
-  <head>
-    <meta http-equiv="refresh" content="0; url='/module/box-editor" />
-  </head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Box Editor for Tesseract OCR</title>
+  <script>
+    // Verifică dacă aplicația rulează pe serverul Node.js sau direct din browser
+    window.onload = function() {
+      const port = window.location.port;
+      // Dacă rulează pe un port specific (probabil serverul Node.js)
+      if (port) {
+        window.location.href = window.location.origin + '/module/box-editor';
+      } else {
+        window.location.href = '/module/box-editor';
+      }
+    };
+  </script>
+</head>
 
-  <body>
-  </body>
+<body>
+  <p>Se încarcă Box Editor for Tesseract OCR...</p>
+</body>
 
-  </html>
+</html>
