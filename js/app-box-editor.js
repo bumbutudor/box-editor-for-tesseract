@@ -273,6 +273,7 @@ app.ready = async () => {
         differentFileNameWarning: { title: 'notificationTypeDifferentFileNameWarningTitle', type: 'differentFileNameWarning', class: 'warning' },
       },
       error: {
+        tiffConversionError: { title: 'notificationTypeTiffConversionErrorTitle', type: 'tiffConversionError', class: 'error' }, // ADĂUGAT: Eroare conversie TIFF
         loadingTranslationsError: { title: 'notificationTypeLoadingTranslationsErrorTitle', type: 'loadingTranslationsError', class: 'error' },
         networkError: { title: 'notificationTypeNetworkErrorTitle', type: 'networkError', class: 'error' },
         identicalPatternNamesError: { title: 'notificationTypeIdenticalPatternNamesErrorTitle', type: 'identicalPatternNamesError', class: 'error' },
@@ -2087,9 +2088,10 @@ app.ready = async () => {
       var
         files = event;
       files.forEach(file => {
-        if (file.type.includes('image') || file.type.includes('pdf')) {
+        const fileNameLower = file.name.toLowerCase();
+        if (/\.(jpe?g|png|gif|bmp|webp|pdf|tiff?)$/i.test(fileNameLower)) {
           imageFile = file;
-        } else if (file.name.endsWith('.box')) {
+        } else if (fileNameLower.endsWith('.box')) {
           boxFile = file;
         } else {
           handler.notifyUser({
@@ -2300,20 +2302,36 @@ app.ready = async () => {
     load: {
       imageCallback: async (img, pdfPages = false) => {
         // console.log('Image loaded', img);
-        // if (!map) { handler.create.map('mapid'); }
+        if (!map) { 
+          console.log('Map nu există încă, se creează acum');
+          handler.create.map('mapid'); 
+        }
+        
         documentBoxData[currentPageIndex] = boxData;
         emptyBoxLayer = true;
-        map.removeLayer(documentBoxLayers[currentPageIndex]);
-        // map.eachLayer(layer => map.removeLayer(layer));
-        boxData = [];
-        if (documentBoxData[newPageIndex] && documentBoxData[newPageIndex].length !== 0) {
-          boxData = documentBoxData[newPageIndex];
-          emptyBoxLayer = false;
+        
+        try {
+          // Verificăm dacă layer-ul documentBoxLayers[currentPageIndex] există înainte de a-l elimina
+          if (map && documentBoxLayers[currentPageIndex]) {
+            map.removeLayer(documentBoxLayers[currentPageIndex]);
+          }
+          
+          // map.eachLayer(layer => map.removeLayer(layer));
+          boxData = [];
+          if (documentBoxData[newPageIndex] && documentBoxData[newPageIndex].length !== 0) {
+            boxData = documentBoxData[newPageIndex];
+            emptyBoxLayer = false;
+          }
+          if (documentBoxLayers[newPageIndex] === undefined) {
+            documentBoxLayers[newPageIndex] = new L.FeatureGroup();
+          }
+          
+          if (map) {
+            map.addLayer(documentBoxLayers[newPageIndex]);
+          }
+        } catch (error) {
+          console.error('Eroare la gestionarea layerelor:', error);
         }
-        if (documentBoxLayers[newPageIndex] === undefined) {
-          documentBoxLayers[newPageIndex] = new L.FeatureGroup();
-        }
-        map.addLayer(documentBoxLayers[newPageIndex]);
 
         boxDataInfo.setDirty(false);
         lineDataInfo.setDirty(false);
@@ -2331,15 +2349,17 @@ app.ready = async () => {
         await new Promise((resolve, reject) => {
           if (image) {
             $(image._image).fadeOut(pdfPages ? 100 : 750, async () => {
-              map.removeLayer(image);
-              image = new L.imageOverlay(img.src, bounds, imageOverlayOptions).addTo(map);
+              if (map) map.removeLayer(image);
+              image = new L.imageOverlay(img.src, bounds, imageOverlayOptions);
+              if (map) image.addTo(map);
               $(image._image).fadeIn(pdfPages ? 100 : 500, () => {
                 resolve();
               });
             });
           } else {
-            map.fitBounds(bounds2);
-            image = new L.imageOverlay(img.src, bounds, imageOverlayOptions).addTo(map);
+            if (map) map.fitBounds(bounds2);
+            image = new L.imageOverlay(img.src, bounds, imageOverlayOptions);
+            if (map) image.addTo(map);
             $(image._image).fadeIn(750, () => {
               resolve();
             });
@@ -2844,7 +2864,7 @@ app.ready = async () => {
           parallelUploads: 3,
           disablePreviews: true,
           clickable: false,
-          acceptedFiles: "image/*,.box,application/pdf",
+          acceptedFiles: "image/*,.box,application/pdf,image/tiff,.tif,.tiff",
         });
         $html.on('drag dragenter dragover', (event) => {
           event.preventDefault();
@@ -2970,8 +2990,7 @@ app.ready = async () => {
           var file;
           documentPages = [];
           const
-            defaultImageUrl = '../../assets/sampleImage.jpg',
-            img = new Image();
+            defaultImageUrl = '../../assets/sampleImage.jpg';
           if (!map) { handler.create.map('mapid'); }
           if (sample) {
             imageFileName = defaultImageUrl.split('/').pop().split('.').slice(0, -1).join('.');
@@ -2982,7 +3001,7 @@ app.ready = async () => {
             imageFileNameForButton = e;
             filename = e.name;
             file = e;
-          } else if (e.type.includes('pdf') || e.target.files[0].name.includes('pdf')) {
+          } else if (e.type.includes('pdf') || e.target?.files[0]?.name.includes('pdf')) {
             if (e.type.includes('change')) {
               e = e.target.files[0];
             }
@@ -3001,33 +3020,104 @@ app.ready = async () => {
               const blob = new Blob([byteArray], { type: 'image/png' });
               documentPages.push(blob);
             });
-            // log each page to check that the are properly loaded
-            // documentPages.forEach((page, index) => {
-            // });
             currentPageIndex = 0;
             file = documentPages[currentPageIndex];
-          } else if (file = this.files[0]) {
+          } else if (file = this.files?.[0] || e) {
             imageFileName = file.name.split('.').slice(0, -1).join('.');
             imageFileNameForButton = file.name;
             filename = file.name;
           }
 
-          handler.load.image(sample ? defaultImageUrl : _URL.createObjectURL(file))
-            .then(img => handler.load.imageCallback(img))
-            .catch(error => {
-              console.error('Image load failed:', error);
-              const fileExtension = file.name.split('.').pop();
+          // Verifică dacă fișierul este TIFF
+          const fileExtension = file.name.toLowerCase().split('.').pop();
+          const isTiff = ['tif', 'tiff'].includes(fileExtension);
+          const isPdf = /pdf$/i.test(fileExtension);
+
+          let imageDataUrlOrBlobUrl;
+          
+          // Procesare TIFF
+          if (isTiff) {
+            if (typeof Tiff === 'undefined') {
               handler.notifyUser({
-                title: notificationTypes.error.invalidFileTypeError.title,
-                message: appTranslations['notificationTypeInvalidFileTypeErrorBody']
-                  .replace('${fileExtension}', `${fileExtension}`),
-                type: notificationTypes.error.invalidFileTypeError.type,
-                class: notificationTypes.error.invalidFileTypeError.class,
+                title: notificationTypes.error.tiffConversionError.title,
+                message: 'Biblioteca Tiff.js nu este încărcată. Verificați includerea tiff.min.js.',
+                type: notificationTypes.error.tiffConversionError.type,
+                class: notificationTypes.error.tiffConversionError.class,
               });
-            })
-
+              handler.set.loadingState({ main: false, buttons: false });
+              return false;
+            }
+            
+            try {
+              // Citim fișierul TIFF și îl convertim în canvas
+              const reader = new FileReader();
+              const tiffData = await new Promise((resolve, reject) => {
+                reader.onload = e => resolve(e.target.result);
+                reader.onerror = reject;
+                reader.readAsArrayBuffer(file);
+              });
+              
+              const tiff = new Tiff({ buffer: tiffData });
+              const canvas = tiff.toCanvas();
+              imageDataUrlOrBlobUrl = canvas.toDataURL('image/png');
+              
+              // Verificare pentru TIFF multi-pagină
+              if (tiff.countDirectory() > 1) {
+                // Creăm imagini pentru fiecare pagină
+                for (let i = 0; i < tiff.countDirectory(); i++) {
+                  tiff.setDirectory(i);
+                  const pageCanvas = tiff.toCanvas();
+                  const pageDataUrl = pageCanvas.toDataURL('image/png');
+                  
+                  // Convertim Data URL în Blob
+                  const byteString = atob(pageDataUrl.split(',')[1]);
+                  const mimeString = pageDataUrl.split(',')[0].split(':')[1].split(';')[0];
+                  const ab = new ArrayBuffer(byteString.length);
+                  const ia = new Uint8Array(ab);
+                  for (let j = 0; j < byteString.length; j++) {
+                    ia[j] = byteString.charCodeAt(j);
+                  }
+                  const blob = new Blob([ab], { type: mimeString });
+                  documentPages.push(blob);
+                }
+              }
+            } catch (error) {
+              console.error('Eroare la procesarea fișierului TIFF:', error);
+              handler.notifyUser({
+                title: notificationTypes.error.tiffConversionError.title,
+                message: 'Eroare la convertirea fișierului TIFF: ' + error.message,
+                type: notificationTypes.error.tiffConversionError.type,
+                class: notificationTypes.error.tiffConversionError.class,
+              });
+              handler.set.loadingState({ main: false, buttons: false });
+              return false;
+            }
+          } else {
+            // Pentru imagini non-TIFF, folosim URL.createObjectURL
+            imageDataUrlOrBlobUrl = sample ? defaultImageUrl : _URL.createObjectURL(file);
+          }
+          
+          // Încărcăm imaginea 
+          const imgElement = await handler.load.image(imageDataUrlOrBlobUrl);
+          
+          // Asigură-te că map există înainte de a apela callback-ul
+          if (!map) { 
+            handler.create.map('mapid'); 
+          }
+          
+          // --- Call callback ---
+          await handler.load.imageCallback(imgElement, isPdf || isTiff || documentPages.length > 1);
+          
+          // Free memory if we created a Blob URL (not needed for Data URL generated from TIFF/PDF)
+          // MODIFICAT: Mutăm revocarea URL-ului după ce imaginea a fost procesată complet
+          if (!isTiff && !isPdf && (file instanceof File || file instanceof Blob)) {
+            _URL.revokeObjectURL(imageDataUrlOrBlobUrl);
+          } else if (isPdf) {
+            // Blob URL for first PDF page needs to be revoked
+            _URL.revokeObjectURL(imageDataUrlOrBlobUrl);
+          } // Data URL from TIFF doesn't need revocation
+          
           return true;
-
         } catch (error) {
           handler.set.loadingState({ main: false, buttons: false });
           console.error('An error occurred:', error);
@@ -3038,8 +3128,15 @@ app.ready = async () => {
         return new Promise((resolve, reject) => {
           const img = new Image();
           img.onload = () => resolve(img);
-          img.onerror = error => reject(error);
+          img.onerror = error => {
+            console.error('Eroare la încărcarea imaginii:', error, 'Sursa:', source);
+            reject(error);
+          };
           img.src = source;
+          // Asigură-te că imaginea este complet încărcată înainte de a continua
+          if (img.complete) {
+            resolve(img);
+          }
         });
       },
     },

@@ -45,6 +45,9 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.10.377/pdf.min.js"></script>
   <!-- <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.0.379/pdf.min.mjs"></script> -->
 
+  <!-- TIFF.js -->
+  <script src="https://cdn.jsdelivr.net/npm/tiff.js@1.0.0/tiff.min.js"></script>
+
   <!-- Fomanic UI -->
   <script src="https://cdn.jsdelivr.net/npm/fomantic-ui@2.9.2/dist/semantic.min.js"></script>
   <link rel="stylesheet" type="text/css" href="https://cdn.jsdelivr.net/npm/fomantic-ui@2.9.2/dist/semantic.min.css">
@@ -369,7 +372,7 @@
                         </div>
                         <label for="imageFile" localization-key="uploadFilesSectionImageLabel">Image</label>
                         <input class="ui invisible file input form-control" type="file" disabled id="imageFile" name="imageFile"
-                          accept="image/*, .pdf" />
+                          accept="image/*, .pdf, .tif, .tiff" />
                         <label for="imageFile" class="ui small fluid button" id="imageFileButton">
                           <i class="file upload icon"></i>
                           <span localization-key="uploadFilesSectionChooseFileButtonLabel">
