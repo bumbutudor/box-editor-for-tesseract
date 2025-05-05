@@ -3134,15 +3134,38 @@ app.ready = async () => {
       },
       image: (source) => {
         return new Promise((resolve, reject) => {
+          if (!source) {
+            console.error('Error: Source URL is undefined or empty');
+            reject(new Error('Source URL is undefined or empty'));
+            return;
+          }
+          
           const img = new Image();
-          img.onload = () => resolve(img);
-          img.onerror = error => {
-            console.error('Eroare la încărcarea imaginii:', error, 'Sursa:', source);
-            reject(error);
+          
+          img.onload = () => {
+            if (img.complete && img.naturalWidth > 0 && img.naturalHeight > 0) {
+              resolve(img);
+            } else {
+              console.error('Error: Image loaded but has invalid dimensions');
+              reject(new Error('Image loaded but has invalid dimensions'));
+            }
           };
+          
+          img.onerror = (error) => {
+            console.error('Error loading image:', error, 'Source:', source);
+            reject(new Error(`Failed to load image from ${source}`));
+          };
+          
+          // Set crossOrigin for network resources (not for blob: or data: URLs)
+          if (typeof source === 'string' && !source.startsWith('blob:') && !source.startsWith('data:')) {
+            img.crossOrigin = 'anonymous';
+          }
+          
+          // Set the source to trigger loading
           img.src = source;
-          // Asigură-te că imaginea este complet încărcată înainte de a continua
-          if (img.complete) {
+          
+          // For already cached images that might trigger the load event immediately
+          if (img.complete && img.naturalWidth > 0 && img.naturalHeight > 0) {
             resolve(img);
           }
         });
@@ -3361,25 +3384,28 @@ app.ready = async () => {
           const imagesFolder = datasetFolder.folder("images");
           const textFolder = datasetFolder.folder("text");
           
-          // Create a temporary canvas for cropping
-          const canvas = document.createElement('canvas');
-          const ctx = canvas.getContext('2d');
-          
-          // Get original image from the map
-          const originalImageSrc = image._image.src;
+          // Verifică dacă imaginea este disponibilă
+          if (!image || !image._image) {
+            throw new Error("Imaginea nu este disponibilă pentru procesare");
+          }
           
           console.log("Original Image Height:", imageHeight);
           console.log("Original Image Width:", imageWidth);
           
-          // Create an image element to draw from
-          const img = new Image();
+          // Creează o copie canvas a întregii imagini pentru a evita problemele cu URL-urile blob
+          const fullCanvas = document.createElement('canvas');
+          fullCanvas.width = image._image.naturalWidth || imageWidth;
+          fullCanvas.height = image._image.naturalHeight || imageHeight;
           
-          // Wait for the image to load
-          await new Promise((resolve, reject) => {
-            img.onload = resolve;
-            img.onerror = reject;
-            img.src = originalImageSrc;
-          });
+          const fullCtx = fullCanvas.getContext('2d');
+          
+          // Desenează imaginea pe canvas
+          fullCtx.drawImage(image._image, 0, 0);
+          console.log(`Imagine copiată în canvas: ${fullCanvas.width}x${fullCanvas.height}`);
+          
+          // Canvas pentru croparea individuală a fiecărui box
+          const cropCanvas = document.createElement('canvas');
+          const cropCtx = cropCanvas.getContext('2d');
           
           // Process each box
           for (let i = 0; i < boxData.length; i++) {
@@ -3388,45 +3414,47 @@ app.ready = async () => {
             
             console.log(`Processing box ${boxNumber}:`, box);
             
-            // In Leaflet coordinates, x1,y1 is bottom-left and x2,y2 is top-right
-            // Get the box boundaries in pixel coordinates
-            const x1 = Math.round(Math.min(box.x1, box.x2));
-            const x2 = Math.round(Math.max(box.x1, box.x2));
-            const y1 = Math.round(Math.min(box.y1, box.y2)); 
-            const y2 = Math.round(Math.max(box.y1, box.y2));
+            // Calculate source parameters for drawImage directly
+            // sx = top-left X in source image coordinates
+            const sx = Math.round(Math.min(box.x1, box.x2));
+            // sy = top-left Y in source image coordinates
+            // box.y2 este coordonata Leaflet pt marginea de sus (cea mai mică valoare Leaflet Y)
+            // imageHeight - box.y2 este coordonata Y în pixeli a marginii de sus (ceea ce ne trebuie pt drawImage)
+            const sy = Math.round(imageHeight - box.y2);
+            // sWidth = source width
+            const sWidth = Math.round(Math.abs(box.x2 - box.x1));
+            // sHeight = source height
+            const sHeight = Math.round(Math.abs(box.y1 - box.y2));
             
-            // Calculate dimensions
-            const width = x2 - x1;
-            const height = y2 - y1;
-            
-            // Skip boxes with zero dimensions
-            if (width <= 0 || height <= 0) {
-              console.warn(`Skipping box ${boxNumber} with invalid dimensions: ${width}x${height}`);
+            // Skip boxes with zero or negative dimensions
+            if (sWidth <= 0 || sHeight <= 0) {
+              console.warn(`Skipping box ${boxNumber} with invalid dimensions: ${sWidth}x${sHeight}`);
               continue;
             }
             
-            // Debug the box coordinates
-            console.log(`Box ${boxNumber} coordinates:`, { x1, y1, x2, y2, width, height });
-            
-            // Set canvas dimensions to match the box
-            canvas.width = width;
-            canvas.height = height;
+            // Debug the calculated parameters
+            console.log(`Box ${boxNumber} Leaflet Coords:`, { x1: box.x1, y1: box.y1, x2: box.x2, y2: box.y2 });
+            console.log(`Box ${boxNumber} DrawImage Params:`, { sx, sy, sWidth, sHeight });
             
             try {
-              // Clear the canvas
-              ctx.clearRect(0, 0, canvas.width, canvas.height);
+              // Set canvas dimensions to match the box
+              cropCanvas.width = sWidth;
+              cropCanvas.height = sHeight;
               
-              // Draw the cropped portion onto the canvas
-              ctx.drawImage(
-                img,
-                x1, y1,         // Source position (top-left corner of the crop)
-                width, height,  // Source dimensions (width and height of the crop)
-                0, 0,           // Destination position (place at 0,0 in the canvas)
-                width, height   // Destination dimensions (same size as source)
+              // Clear the canvas
+              cropCtx.clearRect(0, 0, cropCanvas.width, cropCanvas.height);
+              
+              // Draw the cropped portion onto the canvas - folosim fullCanvas ca sursă în loc de img
+              cropCtx.drawImage(
+                fullCanvas,
+                sx, sy,           // Source position (top-left corner of the crop)
+                sWidth, sHeight,  // Source dimensions (width and height of the crop)
+                0, 0,             // Destination position (place at 0,0 in the canvas)
+                sWidth, sHeight   // Destination dimensions (same size as source)
               );
               
               // Convert the canvas to a PNG image
-              const imageData = canvas.toDataURL('image/png');
+              const imageData = cropCanvas.toDataURL('image/png');
               const base64Data = imageData.split(',')[1];
               
               // Add the image to the ZIP
@@ -3435,7 +3463,13 @@ app.ready = async () => {
               // Add the corresponding text file
               textFolder.file(`line_${boxNumber}.txt`, box.text);
             } catch (error) {
-              console.error(`Error processing box ${boxNumber}:`, error);
+              console.error(`Error processing box ${boxNumber} with sx=${sx}, sy=${sy}, sWidth=${sWidth}, sHeight=${sHeight}:`, error);
+              handler.notifyUser({
+                title: 'Cropping Error',
+                message: `Failed to crop box ${boxNumber}. Skipping. Error: ${error.message}`,
+                type: 'error',
+                class: 'error'
+              });
             }
           }
           
@@ -3655,35 +3689,80 @@ app.ready = async () => {
         map.addLayer(documentBoxLayers[currentPageIndex]);
       },
       detect: async (boxList = []) => {
-        if (!boxList.length) { return await worker.recognize(image._image, { pdf: true }); }
-        for (const box of boxList) {
-          const layer = documentBoxLayers[currentPageIndex].getLayer(box.polyid);
-          handler.map.disableEditBox(layer);
-          handler.style.setProcessing(layer);
-          const message = {
-            type: 'regeneratingTextData',
-            value: boxList.findIndex(x => x.polyid == box.polyid),
-            total: boxList.length,
+        try {
+          // Asigură-te că avem acces valid la imagine pentru OCR
+          if (!image || !image._image) {
+            throw new Error("Imaginea nu este disponibilă pentru OCR");
+          }
+
+          // Creează o copie a imaginii pentru a evita problemele cu accesul la blob URL-uri
+          const createImageCopy = async () => {
+            return new Promise((resolve, reject) => {
+              const canvas = document.createElement('canvas');
+              canvas.width = image._image.naturalWidth;
+              canvas.height = image._image.naturalHeight;
+              
+              const ctx = canvas.getContext('2d');
+              ctx.drawImage(image._image, 0, 0);
+              
+              // Pentru debugging
+              console.log(`Imagine copiată: ${canvas.width}x${canvas.height}`);
+              
+              // Convertim canvas în ImageData pentru Tesseract
+              resolve(canvas);
+            });
           };
-          handler.update.progressBar(message);
-          var
-            rectangle = {
+          
+          // Creează o copie a imaginii pentru OCR
+          const imageCanvas = await createImageCopy();
+
+          if (!boxList.length) {
+            console.log("Procesare OCR pe întreaga imagine...");
+            return await worker.recognize(imageCanvas);
+          }
+          
+          for (const box of boxList) {
+            const layer = documentBoxLayers[currentPageIndex].getLayer(box.polyid);
+            handler.map.disableEditBox(layer);
+            handler.style.setProcessing(layer);
+            
+            const message = {
+              type: 'regeneratingTextData',
+              value: boxList.findIndex(x => x.polyid == box.polyid),
+              total: boxList.length,
+            };
+            handler.update.progressBar(message);
+            
+            const rectangle = {
               left: box.x1,
               top: imageHeight - box.y2,
               width: box.x2 - box.x1,
               height: box.y2 - box.y1,
-            },
-            result = await worker.recognize(image._image, { rectangle });
-          box.text = result.data.text.replace(/(\r\n|\n|\r)/gm, '');
-          box.isModelGeneratedText = true;
-          box.modelConfidenceScore = result.data.confidence;
-          lineDataInfo.setDirty(true);
-          boxDataInfo.setDirty(true);
-          box.committed = false;
-          box.visited = false;
-          handler.style.remove(layer);
-        };
-        return boxList;
+            };
+            
+            // Folosim copia canvas pentru a procesa doar porțiunea necesară
+            const result = await worker.recognize(imageCanvas, { rectangle });
+            
+            box.text = result.data.text.replace(/(\r\n|\n|\r)/gm, '');
+            box.isModelGeneratedText = true;
+            box.modelConfidenceScore = result.data.confidence;
+            lineDataInfo.setDirty(true);
+            boxDataInfo.setDirty(true);
+            box.committed = false;
+            box.visited = false;
+            handler.style.remove(layer);
+          }
+          return boxList;
+        } catch (error) {
+          console.error("Eroare în procesul OCR:", error);
+          handler.notifyUser({
+            title: 'Eroare OCR',
+            message: `Nu s-a putut procesa imaginea: ${error.message}`,
+            type: 'error',
+            class: 'error'
+          });
+          return boxList.length ? boxList : { data: { lines: [] } };
+        }
       },
     },
     close: {
