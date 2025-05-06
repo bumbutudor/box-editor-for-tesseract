@@ -92,6 +92,8 @@ app.ready = async () => {
     $boxFileInput = $('#boxFile'),
     $imageFileInput = $('#imageFile'),
     $imageFileInputButton = $('#imageFileButton'),
+    $folderInput = $('#folderInput'),
+    $folderInputButton = $('#folderInputButton'),
     $downloadBoxFileButton = $('#downloadBoxFileButton'),
     $downloadGroundTruthFileButton = $('#downloadGroundTruthButton'),
     $downloadDatasetButton = $('#downloadDatasetButton'),
@@ -183,6 +185,10 @@ app.ready = async () => {
     documentPages = [],
     currentPageIndex = 0,
     newPageIndex = 0,
+    folderFiles = [],
+    documentFolderData = null,
+    pageImageHeights = [],
+    pageImageWidths = [],
     boxFile,
     imageFileInfo = {
       processed: false,
@@ -2422,7 +2428,9 @@ app.ready = async () => {
         } else {
           newPageIndex = documentPages.length - 1;
         }
-        handler.load.image(_URL.createObjectURL(documentPages[newPageIndex]))
+        const prevPage = documentPages[newPageIndex];
+        const url = typeof prevPage === 'string' ? prevPage : _URL.createObjectURL(prevPage);
+        handler.load.image(url)
           .then(img => handler.load.imageCallback(img, pdfPages = true))
           .catch(error => {
             console.error('Image load failed:', error);
@@ -2434,7 +2442,8 @@ app.ready = async () => {
               type: notificationTypes.error.invalidFileTypeError.type,
               class: notificationTypes.error.invalidFileTypeError.class,
             });
-          })
+          });
+        if (typeof prevPage !== 'string') _URL.revokeObjectURL(url);
         $groundTruthInputField.val('');
         handler.destroy.positionSlider();
         handler.destroy.progressBar();
@@ -2447,7 +2456,9 @@ app.ready = async () => {
         } else {
           newPageIndex = 0;
         }
-        handler.load.image(_URL.createObjectURL(documentPages[newPageIndex]))
+        const nextPg = documentPages[newPageIndex];
+        const url2 = typeof nextPg === 'string' ? nextPg : _URL.createObjectURL(nextPg);
+        handler.load.image(url2)
           .then(img => handler.load.imageCallback(img, pdfPages = true))
           .catch(error => {
             console.error('Image load failed:', error);
@@ -2459,7 +2470,8 @@ app.ready = async () => {
               type: notificationTypes.error.invalidFileTypeError.type,
               class: notificationTypes.error.invalidFileTypeError.class,
             });
-          })
+          });
+        if (typeof nextPg !== 'string') _URL.revokeObjectURL(url2);
         $groundTruthInputField.val('');
         handler.destroy.positionSlider();
         handler.destroy.progressBar();
@@ -3200,6 +3212,30 @@ app.ready = async () => {
           }
         });
       },
+      folderUpload: async function(event) {
+        try {
+          if (!event.target.files.length) return;
+          handler.set.loadingState({ main: true, buttons: true });
+          folderFiles = Array.from(event.target.files);
+          const sessionId = Date.now().toString();
+          const formData = new FormData();
+          formData.append('sessionId', sessionId);
+          folderFiles.forEach(file => formData.append('files', file));
+          const response = await fetch(`/api/upload-folder?sessionId=${sessionId}`, { method: 'POST', body: formData });
+          const data = await response.json();
+          documentFolderData = data;
+          documentPages = data.images.map(img => `/api/get-image/${sessionId}/${encodeURIComponent(img.name)}`);
+          newPageIndex = 0;
+          const img = await handler.load.image(documentPages[0]);
+          await handler.load.imageCallback(img, false);
+          // hide the upload modal now that folder is loaded
+          $('#fileUploadModal').modal('hide');
+        } catch (error) {
+          console.error('Error uploading folder:', error);
+        } finally {
+          handler.set.loadingState({ main: false, buttons: false });
+        }
+      },
     },
     focusGroundTruthField: () => {
       $groundTruthInputField.focus();
@@ -3856,6 +3892,7 @@ app.ready = async () => {
       $coordinateFields.on('input', handler.update.boxCoordinates);
       $boxFileInput.on('change', handler.load.boxFile);
       $imageFileInput.on('change', handler.load.imageFile);
+      $folderInput.on('change', handler.load.folderUpload);
       $checkboxes.checkbox();
       $checkboxes.filter('.master')
         .checkbox({
@@ -3881,6 +3918,7 @@ app.ready = async () => {
       $resetButton.on('click', handler.resetAppSettings);
       $useSampleImageButton.on('click', handler.load.sampleImageAndBox);
       $addNewHighligherButton.on('click', handler.addNewHighlighterPattern);
+      $folderInputButton.on('click', () => $folderInput.click());
       $pageNavigationControlsPreviousButton.on('click', handler.load.previousPage);
       $pageNavigationControlsNextButton.on('click', handler.load.nextPage);
     },
@@ -3893,6 +3931,7 @@ app.ready = async () => {
       handler.bindButtons();
       handler.addBehaviors();
       $imageFileInput.prop('disabled', false);
+      $folderInput.prop('disabled', false);
       boxDataInfo.setDirty(false);
       lineDataInfo.setDirty(false);
       handler.load.settings();

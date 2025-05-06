@@ -360,7 +360,7 @@
                 <div class="eight wide column">
                   <h4 class="ui dividing header" localization-key="uploadFilesSectionHeader">Upload Files</h4>
                   <form class="ui form">
-                    <div class="two fields">
+                    <div class="three fields">
                       <div class="field">
                         <div class="ui useSampleImage flowing center aligned popup">
                           <h4 class="ui header" localization-key="useSamplePopupHeader">Use Sample Image</h4>
@@ -391,6 +391,14 @@
                           <span localization-key="uploadFilesSectionChooseFileButtonLabel">
                             Choose File
                           </span>
+                        </label>
+                      </div>
+                      <div class="field">
+                        <label for="folderInput">Folder</label>
+                        <input class="ui invisible file input" type="file" disabled id="folderInput" name="folderInput" webkitdirectory directory multiple />
+                        <label for="folderInput" class="ui small fluid button" id="folderInputButton">
+                          <i class="folder icon"></i>
+                          Upload Folder
                         </label>
                       </div>
                     </div>
