@@ -3918,7 +3918,8 @@ app.ready = async () => {
       $resetButton.on('click', handler.resetAppSettings);
       $useSampleImageButton.on('click', handler.load.sampleImageAndBox);
       $addNewHighligherButton.on('click', handler.addNewHighlighterPattern);
-      $folderInputButton.on('click', () => $folderInput.click());
+      // Removing redundant click handler - the for="folderInput" attribute already handles this
+      // $folderInputButton.on('click', () => $folderInput.click());
       $pageNavigationControlsPreviousButton.on('click', handler.load.previousPage);
       $pageNavigationControlsNextButton.on('click', handler.load.nextPage);
     },
