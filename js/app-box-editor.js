@@ -2421,7 +2421,8 @@ app.ready = async () => {
         imageFileInfo.setProcessed();
 
       },
-      previousPage: () => {
+      previousPage: async () => {
+        await handler.savePageData();
         // compare currentPageIndex with documentPages length
         if (currentPageIndex > 0) {
           newPageIndex = currentPageIndex - 1;
@@ -2449,7 +2450,8 @@ app.ready = async () => {
         handler.destroy.progressBar();
         handler.update.colorizedBackground();
       },
-      nextPage: () => {
+      nextPage: async () => {
+        await handler.savePageData();
         // compare currentPageIndex with documentPages length
         if (currentPageIndex < documentPages.length - 1) {
           newPageIndex = currentPageIndex + 1;
@@ -3228,6 +3230,8 @@ app.ready = async () => {
           newPageIndex = 0;
           const img = await handler.load.image(documentPages[0]);
           await handler.load.imageCallback(img, false);
+          // Save empty page data for the initial folder page to prevent 404 errors
+          await handler.savePageData();
           // hide the upload modal now that folder is loaded
           $('#fileUploadModal').modal('hide');
         } catch (error) {
@@ -3406,124 +3410,48 @@ app.ready = async () => {
         });
         boxDataInfo.setDirty(false);
       },
-      dataset: async () => {
-        if (!documentBoxData.length || !boxData.length) {
-          handler.notifyUser({
-            title: notificationTypes.warning.nothingToDownloadWarning.title,
-            message: 'notificationTypeNothingToDownloadWarningBody',
-            type: notificationTypes.warning.nothingToDownloadWarning.type,
-            class: notificationTypes.warning.nothingToDownloadWarning.class,
-          });
-          return false;
+      dataset: async function (event) {
+        event.preventDefault();
+        
+        // Save current page data before downloading
+        try {
+          await handler.savePageData();
+          console.log("Current page data saved before downloading dataset");
+        } catch (err) {
+          console.warn("Could not save current page data:", err);
         }
         
-        // Make sure the latest text is submitted
-        handler.submitText();
-
-        // Check for uncommitted changes
-        if (lineDataInfo.isDirty()) {
-          handler.notifyUser({
-            title: notificationTypes.error.commitLineError.title,
-            message: 'notificationTypeCommitLineErrorBody',
-            type: notificationTypes.error.commitLineError.type,
-            class: notificationTypes.error.commitLineError.class,
-          });
-          return false;
+        const sessionId = documentFolderData?.sessionId;
+        if (!sessionId) {
+          alert('Not in folder mode or no session ID available.');
+          return;
         }
-
-        // Sort boxes for consistent order
-        handler.sortAllBoxes();
         
         try {
-          // Show loading notification
-          handler.notifyUser({
-            title: "Generare Dataset",
-            message: "Se procesează imaginea și datele de text pe server...",
-            type: "info",
-          });
-          
-          // Convertim imaginea în Blob pentru a o trimite la server
-          const imageBlob = await new Promise(resolve => {
-            // Creăm un canvas temporar pentru a accesa datele imaginii
-            const canvas = document.createElement('canvas');
-            canvas.width = image._image.naturalWidth || imageWidth;
-            canvas.height = image._image.naturalHeight || imageHeight;
-            
-            const ctx = canvas.getContext('2d');
-            ctx.drawImage(image._image, 0, 0);
-            
-            canvas.toBlob(blob => {
-              resolve(blob);
-            }, 'image/png');
-          });
-          
-          // Pregătim datele pentru trimitere
-          const formData = new FormData();
-          formData.append('image', imageBlob, `${imageFileName}.png`);
-          formData.append('boxData', JSON.stringify(boxData));
-          formData.append('imageHeight', imageHeight);
-          formData.append('imageWidth', imageWidth);
-          formData.append('datasetName', imageFileName);
-          
-          console.log('Trimitere dataset cu următoarele date:', {
-            imageFileName: `${imageFileName}.png`,
-            imageSize: imageBlob.size,
-            numberOfBoxes: boxData.length,
-            imageHeight: imageHeight,
-            imageWidth: imageWidth
-          });
-          
-          // Folosim fetch pentru a trimite datele și a primi arhiva
-          const response = await fetch('/api/generate-dataset', {
-            method: 'POST',
-            body: formData
-          });
+          // Folder session: save current page then redirect to download endpoint
+          const response = await fetch(`/api/download-final-dataset?sessionId=${sessionId}`);
           
           if (!response.ok) {
-            let errorMessage = 'Eroare la generarea dataset-ului';
-            try {
-              const errorData = await response.json();
-              errorMessage = errorData.error || errorMessage;
-            } catch (e) {
-              // Ignorăm erorile de parsare JSON
-            }
-            throw new Error(errorMessage);
+            const errorData = await response.json();
+            console.error('Server error details: ', errorData);
+            throw new Error(errorData.error || 'Failed to download dataset');
           }
           
-          // Obținem blob-ul arhivei
+          // Download the file using the blob API
           const blob = await response.blob();
-          
-          // Creăm un URL pentru blob și descărcăm fișierul
           const url = window.URL.createObjectURL(blob);
           const a = document.createElement('a');
           a.style.display = 'none';
           a.href = url;
-          a.download = `${imageFileName}_Dataset.zip`;
+          a.download = `dataset_${sessionId}.zip`;
           document.body.appendChild(a);
           a.click();
-          
-          // Facem curățare
           window.URL.revokeObjectURL(url);
-          document.body.removeChild(a);
-          
-          // Notificăm utilizatorul despre succes
-          handler.notifyUser({
-            title: notificationTypes.info.fileDownloadedInfo.title,
-            message: appTranslations['notificationTypeFileDownloadedInfoBody']
-              .replace('${imageFileName}', `${imageFileName}`)
-              .replace('${fileExtension}', 'Dataset.zip'),
-            type: notificationTypes.info.fileDownloadedInfo.type,
-            class: notificationTypes.info.fileDownloadedInfo.class,
-          });
+          a.remove();
           
         } catch (error) {
-          console.error('Eroare la generarea dataset-ului:', error);
-          handler.notifyUser({
-            title: 'Eroare la Generarea Dataset-ului',
-            message: error.message || 'A apărut o eroare la generarea dataset-ului pe server.',
-            type: 'error',
-            class: 'error'
-          });
+          console.error('Error downloading final dataset:', error);
+          alert(`Error downloading dataset: ${error.message}`);
         }
       },
     },
@@ -3964,6 +3892,64 @@ app.ready = async () => {
       await handler.update.interfaceLanguage(lang);
       $body[0].style.transition = "opacity 0.5s ease-in-out";
       $body[0].style.opacity = "1";
+    },
+    // Save current page's box data to the server
+    savePageData: async function() {
+      if (!documentFolderData?.sessionId) {
+        console.log("[Client] savePageData: Not in folder mode or no session ID. Skipping save.");
+        return;
+      }
+
+      console.log(`[Client] savePageData: Entered. currentPageIndex: ${currentPageIndex}, Session ID: ${documentFolderData.sessionId}`);
+      // Log a shallow copy of documentFolderData for overview, and images array specifically
+      if (documentFolderData) {
+        console.log("[Client] savePageData: documentFolderData.sessionId:", documentFolderData.sessionId);
+        console.log("[Client] savePageData: documentFolderData.images (length):", documentFolderData.images ? documentFolderData.images.length : 'undefined/null');
+        // console.log("[Client] savePageData: documentFolderData.images (full):", JSON.parse(JSON.stringify(documentFolderData.images || [])));
+      } else {
+        console.error("[Client] savePageData: documentFolderData is null or undefined!");
+        return;
+      }
+      
+      if (!documentFolderData.images || !Array.isArray(documentFolderData.images)) {
+          console.error("[Client] savePageData: documentFolderData.images is not an array or is missing!");
+          return;
+      }
+      if (currentPageIndex < 0 || currentPageIndex >= documentFolderData.images.length) {
+          console.error(`[Client] savePageData: currentPageIndex ${currentPageIndex} is out of bounds for images array (length ${documentFolderData.images.length})`);
+          return;
+      }
+
+      const currentImageInfo = documentFolderData.images[currentPageIndex];
+      if (!currentImageInfo || typeof currentImageInfo !== 'object') {
+          console.error(`[Client] savePageData: currentImageInfo at index ${currentPageIndex} is not an object or is null/undefined. Value:`, currentImageInfo);
+          return;
+      }
+      
+      const pageNameForAPI = currentImageInfo.name; // This should be like "filename.tif"
+
+      if (typeof pageNameForAPI !== 'string' || pageNameForAPI.length === 0) {
+          console.error(`[Client] savePageData: pageNameForAPI (from currentImageInfo.name) is invalid for image at index ${currentPageIndex}. Value: '${pageNameForAPI}'. Full currentImageInfo:`, JSON.parse(JSON.stringify(currentImageInfo)));
+          return; 
+      }
+      
+      const encodedName = encodeURIComponent(pageNameForAPI);
+      
+      try {
+        await fetch('/api/save-page-data', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            sessionId: documentFolderData.sessionId,
+            imageFileName: encodedName, 
+            boxData: boxData 
+          })
+        });
+        console.log(`[Client] Successfully POSTed to /api/save-page-data for ${pageNameForAPI} (encoded: ${encodedName}). Session: ${documentFolderData.sessionId}, Boxes: ${boxData.length}`);
+      } catch (err) {
+        console.error(`[Client] Failed to fetch /api/save-page-data for ${pageNameForAPI}. Error:`, err);
+        console.error(`[Client] Details - SessionId: ${documentFolderData.sessionId}, EncodedName: ${encodedName}, BoxData length: ${boxData.length}`);
+      }
     },
   };
   const Keyboard = window.SimpleKeyboard.default;
