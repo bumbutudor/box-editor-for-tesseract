@@ -1,0 +1,38 @@
+{
+  "name": "box-editor-for-tesseract",
+  "version": "1.8.0",
+  "description": "Web-based box editor for Tesseract OCR with server-side processing capabilities",
+  "main": "server/server.js",
+  "scripts": {
+    "start": "node server/server.js",
+    "dev": "cd server && npm run dev",
+    "postinstall": "cd server && npm install"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/mariuspenteliuc/box-editor-for-tesseract.git"
+  },
+  "keywords": [
+    "OCR",
+    "tesseract",
+    "box-editor",
+    "LSTM",
+    "transliteration"
+  ],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/mariuspenteliuc/box-editor-for-tesseract/issues"
+  },
+  "homepage": "https://github.com/mariuspenteliuc/box-editor-for-tesseract#readme",
+  "engines": {
+    "node": ">=14.0.0"
+  },
+  "dependencies": {
+    "archiver": "^7.0.1",
+    "cors": "^2.8.5",
+    "express": "^5.1.0",
+    "multer": "^1.4.5-lts.2",
+    "sharp": "^0.34.1"
+  }
+}
