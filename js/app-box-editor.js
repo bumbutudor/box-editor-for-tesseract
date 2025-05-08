@@ -256,6 +256,8 @@ app.ready = async () => {
           keyboardShortcutsEnabled: true,
           shortcuts: []
         },
+        // Toggle automatic insertion of OCR predictions
+        autoOcrPredictions: true,
       },
       language: {
         recognitionModel: 'RTS_from_Cyrillic',
@@ -3585,6 +3587,8 @@ app.ready = async () => {
         $regenerateTextSuggestionsButton.removeClass('disabled double loading');
       },
       initialBoxes: async (includeSuggestions = true) => {
+        // Determine whether to insert suggestions based on setting and include flag
+        const useSuggestions = appSettings.behavior.autoOcrPredictions && includeSuggestions;
         $redetectAllBoxesButton.addClass('disabled double loading');
         if (appSettings.behavior.alerting.enableWarrningMessagesForOverwritingDirtyData && boxDataInfo.isDirty()) {
           const response = await handler.askUser({
@@ -3620,7 +3624,7 @@ app.ready = async () => {
           }
 
           textLines.forEach(line => line.text = line.text.replace(/(\r\n|\n|\r)/gm, ""));
-          await handler.ocr.insertSuggestions(includeSuggestions, textLines);
+          await handler.ocr.insertSuggestions(useSuggestions, textLines);
           handler.focusBoxID(handler.getBoxContent().polyid);
           handler.set.loadingState({ buttons: false, main: false });
           handler.init.slider()
@@ -3775,6 +3779,19 @@ app.ready = async () => {
       handler.update.colorizedBackground();
       handler.focusGroundTruthField();
     },
+    // Toggle automatic OCR predictions insertion
+    toggleAutoOcr: () => {
+      const newValue = !appSettings.behavior.autoOcrPredictions;
+      handler.update.appSettings({ path: 'behavior.autoOcrPredictions', value: newValue });
+      handler.updateAutoOcrButton();
+    },
+    // Update the Auto OCR Predictions toggle button state
+    updateAutoOcrButton: () => {
+      const enabled = appSettings.behavior.autoOcrPredictions;
+      $('#autoOcrToggle').toggleClass('active', enabled);
+      const icon = $('#autoOcrIcon');
+      icon.toggleClass('toggle on', enabled).toggleClass('toggle off', !enabled);
+    },
     showCharInfoPopupFromMouseClick: (event) => { if (/mouseup/.test(event.type)) { setTimeout(() => { handler.showCharInfoPopup(event); }, 0); } },
     showCharInfoPopup: (event) => {
       if (!appSettings.interface.editorTools.unicodeInfoPopup) return;
@@ -3868,6 +3885,8 @@ app.ready = async () => {
       $downloadGroundTruthFileButton.on('click', handler.download.file.bind(handler.download, 'ground-truth'));
       $downloadDatasetButton.on('click', handler.download.dataset);
       $invisiblesToggleButton.on('click', handler.toggleInvisibles);
+      // Bind auto OCR toggle
+      $('#autoOcrToggle').on('click', handler.toggleAutoOcr);
       $regenerateTextSuggestionForSelectedBoxButton.on('click', handler.generate.textSuggestion);
       $redetectAllBoxesButton.on('click', handler.generate.initialBoxes);
       $regenerateTextSuggestionsButton.on('click', handler.generate.textSuggestions);
@@ -3892,6 +3911,8 @@ app.ready = async () => {
     initialize: async () => {
       handler.bindInputs();
       handler.bindButtons();
+      // Initialize the auto OCR predictions toggle button state
+      handler.updateAutoOcrButton();
       handler.addBehaviors();
       $imageFileInput.prop('disabled', false);
       $folderInput.prop('disabled', false);
