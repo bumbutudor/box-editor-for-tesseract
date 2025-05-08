@@ -3273,6 +3273,7 @@ app.ready = async () => {
           wordPages = data.split(/==\d+==/).map(s => s.trim()).filter(s => s.length);
           currentWordPageIndex = 0;
           handler.update.pageTextPanel();
+          $('#pageTextSection').show();
         } catch (e) {
           console.error('Error reading text file:', e);
         }
@@ -3805,8 +3806,6 @@ app.ready = async () => {
     updateAutoOcrButton: () => {
       const enabled = appSettings.behavior.autoOcrPredictions;
       $('#autoOcrToggle').toggleClass('active', enabled);
-      const icon = $('#autoOcrIcon');
-      icon.toggleClass('toggle on', enabled).toggleClass('toggle off', !enabled);
     },
     // Toggle AI text selection
     toggleAITextSelection: () => {

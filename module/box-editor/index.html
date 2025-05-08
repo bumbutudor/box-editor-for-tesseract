@@ -130,7 +130,7 @@
           <!-- Auto OCR Predictions Toggle -->
           <button id="autoOcrToggle" name="interface.toolbarActions.autoOcrPredictions"
             class="ui compact icon toggle button tooltip-trigger" tabindex="0" title="Toggle automatic OCR predictions">
-            <i id="autoOcrIcon" class="toggle on icon"></i>
+            <i id="autoOcrIcon" class="font icon"></i>
           </button>
           <div class="ui popup">
             <span>Toggle automatic OCR predictions</span>
@@ -345,11 +345,10 @@
                 </span>
                 <i class="right chevron icon"></i>
               </button>
-+             
-+             <button id="aiExtractTextButton" class="ui disabled right labeled icon button" title="AI Extract Text">
-+               <i class="brain icon"></i>
-+               <span>AI Extract Text</span>
-+             </button>
+              <button id="aiExtractTextButton" class="ui disabled right labeled icon button" title="AI Extract Text">
+                <i class="brain icon"></i>
+                <span>AI Extract Text</span>
+              </button>
             </div>
             <div class="ui form">
               <div class="field">
@@ -359,7 +358,7 @@
                   <i class="file upload icon"></i> Load Text File
                 </label>
               </div>
-              <div class="field" id="pageTextSection" style="overflow:auto; max-height:200px;">
+              <div class="field" id="pageTextSection" style="display:none; overflow:auto; max-height:200px; text-align: center;">
                 <div class="ui buttons" style="margin-bottom:0.5em;">
                   <button id="textPrevPage" type="button" class="ui button">Previous Text Page</button>
                   <button id="textNextPage" type="button" class="ui button">Next Text Page</button>
