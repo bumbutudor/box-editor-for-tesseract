@@ -330,6 +330,22 @@
                 <i class="right chevron icon"></i>
               </button>
             </div>
+            <div class="ui form">
+              <div class="field">
+                <label for="textFileInput">Import Text File</label>
+                <input class="ui invisible file input" type="file" id="textFileInput" name="textFileInput" accept=".txt" />
+                <label for="textFileInput" class="ui small fluid button">
+                  <i class="file upload icon"></i> Load Text File
+                </label>
+              </div>
+              <div class="field" id="pageTextSection" style="overflow:auto; max-height:200px;">
+                <div class="ui buttons" style="margin-bottom:0.5em;">
+                  <button id="textPrevPage" type="button" class="ui button">Previous Text Page</button>
+                  <button id="textNextPage" type="button" class="ui button">Next Text Page</button>
+                </div>
+                <pre id="pageTextContent" style="white-space:pre-wrap; padding:0.5em; background:#f9f9f9; border:1px solid #ddd;"></pre>
+              </div>
+            </div>
           </div>
         </div>
       </div>

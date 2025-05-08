@@ -187,6 +187,9 @@ app.ready = async () => {
     newPageIndex = 0,
     folderFiles = [],
     documentFolderData = null,
+    // Imported text pages from user file
+    wordPages = [],
+    currentWordPageIndex = 0,
     pageImageHeights = [],
     pageImageWidths = [],
     boxFile,
@@ -2040,6 +2043,11 @@ app.ready = async () => {
           }
         }
       },
+      // Update the imported text panel
+      pageTextPanel: () => {
+        const content = wordPages[currentWordPageIndex] || '';
+        $('#pageTextContent').text(content);
+      },
     },
     migrateSettings: (oldSettings, downgrade = false) => {
       if (downgrade) {
@@ -3240,6 +3248,29 @@ app.ready = async () => {
           handler.set.loadingState({ main: false, buttons: false });
         }
       },
+      // Load imported text file and split into pages
+      textFile: async function(event) {
+        if (!event.target.files.length) return;
+        try {
+          const file = event.target.files[0];
+          const data = await file.text();
+          // split pages on delimiters like ==1==, ==2==
+          wordPages = data.split(/==\d+==/).map(s => s.trim()).filter(s => s.length);
+          currentWordPageIndex = 0;
+          handler.update.pageTextPanel();
+        } catch (e) {
+          console.error('Error reading text file:', e);
+        }
+      },
+      // Navigate text pages
+      nextTextPage: function() {
+        if (currentWordPageIndex < wordPages.length - 1) currentWordPageIndex++;
+        handler.update.pageTextPanel();
+      },
+      previousTextPage: function() {
+        if (currentWordPageIndex > 0) currentWordPageIndex--;
+        handler.update.pageTextPanel();
+      },
     },
     focusGroundTruthField: () => {
       $groundTruthInputField.focus();
@@ -3828,8 +3859,7 @@ app.ready = async () => {
           onChecked: function () { $(this).closest('.item').siblings().find('.child').checkbox('set enabled'); },
           // disable all children
           onUnchecked: function () { $(this).closest('.item').siblings().find('.child').checkbox('set disabled'); }
-        })
-        ;
+        });
     },
     bindButtons: () => {
       $nextBoxButton.on('click', handler.getNextBoxContentAndFill);
@@ -3850,6 +3880,10 @@ app.ready = async () => {
       // $folderInputButton.on('click', () => $folderInput.click());
       $pageNavigationControlsPreviousButton.on('click', handler.load.previousPage);
       $pageNavigationControlsNextButton.on('click', handler.load.nextPage);
+      // Bind imported text navigation
+      $('#textFileInput').on('change', handler.load.textFile);
+      $('#textPrevPage').on('click', handler.load.previousTextPage);
+      $('#textNextPage').on('click', handler.load.nextTextPage);
     },
     addBehaviors: () => {
       $groundTruthInputField.focus(() => $groundTruthColorizedOutput.addClass('focused'));
