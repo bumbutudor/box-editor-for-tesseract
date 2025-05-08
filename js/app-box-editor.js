@@ -258,6 +258,13 @@ app.ready = async () => {
         },
         // Toggle automatic insertion of OCR predictions
         autoOcrPredictions: true,
+        // AI text selection settings
+        aiTextSelection: {
+          enabled: false,
+          apiKey: "",
+          model: "gpt-4-vision-preview",
+          systemPrompt: "You are a text-matching assistant. Your task is to find the text in the provided text block that corresponds to the text in the image. Only return the exact matching text from the provided text block, with no additional commentary. If you can't find a match, respond with NONE_FOUND."
+        },
       },
       language: {
         recognitionModel: 'RTS_from_Cyrillic',
@@ -2862,6 +2869,12 @@ app.ready = async () => {
           handler.update.appSettings({ localStorage: { appVersion: undefined } });
           handler.update.settingsModal();
         }
+        
+        // Initialize OpenAI settings
+        $('#openai-api-key').val(appSettings.behavior.aiTextSelection.apiKey);
+        $('#openai-model').val(appSettings.behavior.aiTextSelection.model);
+        $('#openai-system-prompt').val(appSettings.behavior.aiTextSelection.systemPrompt);
+        $('#ai-text-selection-enabled').prop('checked', appSettings.behavior.aiTextSelection.enabled);
       },
       popups: () => {
         $imageFileInputButton
@@ -3287,6 +3300,9 @@ app.ready = async () => {
       handler.update.form(boxData.find(x => x.polyid == id));
       if (options.zoom) handler.map.focusShape(box, options.isUpdated);
       handler.style.setActive(box);
+      // Enable/disable AI extract button based on AI settings and if a box is selected
+      const aiEnabled = appSettings.behavior.aiTextSelection.enabled;
+      $('#aiExtractTextButton').toggleClass('disabled', !aiEnabled || !selectedBox);
     },
     submitText: (event) => {
       event?.preventDefault();
@@ -3792,6 +3808,131 @@ app.ready = async () => {
       const icon = $('#autoOcrIcon');
       icon.toggleClass('toggle on', enabled).toggleClass('toggle off', !enabled);
     },
+    // Toggle AI text selection
+    toggleAITextSelection: () => {
+      const newValue = !appSettings.behavior.aiTextSelection.enabled;
+      handler.update.appSettings({ path: 'behavior.aiTextSelection.enabled', value: newValue });
+      handler.updateAITextSelectionButton();
+    },
+    // Update the AI Text Selection toggle button state
+    updateAITextSelectionButton: () => {
+      const enabled = appSettings.behavior.aiTextSelection.enabled;
+      $('#aiTextSelectionToggle').toggleClass('active', enabled);
+      // Also update the state of the manual trigger button
+      $('#aiExtractTextButton').toggleClass('disabled', !enabled || !selectedBox);
+    },
+    // Use OpenAI to match text from the image to the imported text
+    matchTextWithAI: async (boxElement) => {
+      if (!appSettings.behavior.aiTextSelection.enabled || !wordPages[currentWordPageIndex]) {
+        return null;
+      }
+
+      try {
+        const apiKey = appSettings.behavior.aiTextSelection.apiKey;
+        if (!apiKey) {
+          handler.notifyUser({
+            title: 'AI Text Selection Error',
+            message: 'Please set your OpenAI API key in Settings > AI Settings.',
+            type: 'error',
+            class: 'error'
+          });
+          return null;
+        }
+
+        // Get box coordinates and extract the image
+        const box = boxData.find(b => b.polyid === boxElement);
+        if (!box) return null;
+
+        // Create a canvas to capture the box content
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+        const boxWidth = box.x2 - box.x1;
+        const boxHeight = box.y2 - box.y1;
+        
+        canvas.width = boxWidth;
+        canvas.height = boxHeight;
+        
+        // Draw the specific part of the image to the canvas
+        ctx.drawImage(
+          image._image, 
+          box.x1, imageHeight - box.y2, // Source x, y
+          boxWidth, boxHeight, // Source width, height
+          0, 0, // Destination x, y
+          boxWidth, boxHeight // Destination width, height
+        );
+        
+        // Convert canvas to base64 data URL
+        const imageData = canvas.toDataURL('image/jpeg');
+        
+        // Prepare the prompt with the current page text
+        const currentPageText = wordPages[currentWordPageIndex];
+        
+        // Call OpenAI API
+        const response = await fetch('https://api.openai.com/v1/chat/completions', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${apiKey}`
+          },
+          body: JSON.stringify({
+            model: appSettings.behavior.aiTextSelection.model,
+            messages: [
+              {
+                role: 'system',
+                content: appSettings.behavior.aiTextSelection.systemPrompt
+              },
+              {
+                role: 'user',
+                content: [
+                  {
+                    type: 'text',
+                    text: `Find the matching text for this image in the following text block:\n\n${currentPageText}`
+                  },
+                  {
+                    type: 'image_url',
+                    image_url: {
+                      url: imageData
+                    }
+                  }
+                ]
+              }
+            ],
+            max_tokens: 300
+          })
+        });
+        
+        if (!response.ok) {
+          const errorData = await response.json();
+          console.error('OpenAI API error:', errorData);
+          handler.notifyUser({
+            title: 'AI Text Selection Error',
+            message: `Error from OpenAI API: ${errorData.error?.message || 'Unknown error'}`,
+            type: 'error',
+            class: 'error'
+          });
+          return null;
+        }
+        
+        const data = await response.json();
+        const matchedText = data.choices[0].message.content.trim();
+        
+        // Return null if no match was found
+        if (matchedText === 'NONE_FOUND') {
+          return null;
+        }
+        
+        return matchedText;
+      } catch (error) {
+        console.error('Error matching text with AI:', error);
+        handler.notifyUser({
+          title: 'AI Text Selection Error',
+          message: `Error processing image: ${error.message}`,
+          type: 'error',
+          class: 'error'
+        });
+        return null;
+      }
+    },
     showCharInfoPopupFromMouseClick: (event) => { if (/mouseup/.test(event.type)) { setTimeout(() => { handler.showCharInfoPopup(event); }, 0); } },
     showCharInfoPopup: (event) => {
       if (!appSettings.interface.editorTools.unicodeInfoPopup) return;
@@ -3887,6 +4028,8 @@ app.ready = async () => {
       $invisiblesToggleButton.on('click', handler.toggleInvisibles);
       // Bind auto OCR toggle
       $('#autoOcrToggle').on('click', handler.toggleAutoOcr);
+      // Bind AI text selection toggle
+      $('#aiTextSelectionToggle').on('click', handler.toggleAITextSelection);
       $regenerateTextSuggestionForSelectedBoxButton.on('click', handler.generate.textSuggestion);
       $redetectAllBoxesButton.on('click', handler.generate.initialBoxes);
       $regenerateTextSuggestionsButton.on('click', handler.generate.textSuggestions);
@@ -3903,6 +4046,7 @@ app.ready = async () => {
       $('#textFileInput').on('change', handler.load.textFile);
       $('#textPrevPage').on('click', handler.load.previousTextPage);
       $('#textNextPage').on('click', handler.load.nextTextPage);
+      $('#aiExtractTextButton').on('click', handler.ai.extractTextForSelectedBox);
     },
     addBehaviors: () => {
       $groundTruthInputField.focus(() => $groundTruthColorizedOutput.addClass('focused'));
@@ -3913,6 +4057,8 @@ app.ready = async () => {
       handler.bindButtons();
       // Initialize the auto OCR predictions toggle button state
       handler.updateAutoOcrButton();
+      // Initialize the AI text selection toggle button state
+      handler.updateAITextSelectionButton();
       handler.addBehaviors();
       $imageFileInput.prop('disabled', false);
       $folderInput.prop('disabled', false);
@@ -4004,6 +4150,68 @@ app.ready = async () => {
       } catch (err) {
         console.error(`[Client] Failed to fetch /api/save-page-data for ${pageNameForAPI}. Error:`, err);
         console.error(`[Client] Details - SessionId: ${documentFolderData.sessionId}, EncodedName: ${encodedName}, BoxData length: ${boxData.length}`);
+      }
+    },
+    ai: {
+      // Manually trigger AI text extraction for the currently selected box
+      extractTextForSelectedBox: async () => {
+        if (!appSettings.behavior.aiTextSelection.enabled) {
+          handler.notifyUser({
+            title: 'AI Text Selection Disabled',
+            message: 'Please enable AI Text Selection in the toolbar or settings.',
+            type: 'warning',
+            class: 'warning'
+          });
+          return;
+        }
+        
+        if (!selectedBox) {
+          handler.notifyUser({
+            title: 'No Box Selected',
+            message: 'Please select a bounding box first.',
+            type: 'info'
+          });
+          return;
+        }
+
+        if (!wordPages || wordPages.length === 0 || !wordPages[currentWordPageIndex]) {
+          handler.notifyUser({
+            title: 'No Text File Loaded',
+            message: 'Please load a text file containing the page text.',
+            type: 'warning',
+            class: 'warning'
+          });
+          return;
+        }
+
+        $('#aiExtractTextButton').addClass('loading');
+        try {
+          const matchedText = await handler.matchTextWithAI(selectedBox.polyid);
+          if (matchedText) {
+            selectedBox.text = matchedText;
+            $groundTruthInputField.val(matchedText);
+            handler.update.colorizedBackground();
+            lineDataInfo.setDirty(true);
+            boxDataInfo.setDirty(true);
+            handler.notifyUser({
+              title: 'AI Text Extracted',
+              message: 'Text successfully extracted and inserted.',
+              type: 'success', // Or 'info'
+              class: 'positive'
+            });
+          } else {
+            handler.notifyUser({
+              title: 'AI Extraction Failed',
+              message: 'Could not automatically match text for this box.',
+              type: 'info'
+            });
+          }
+        } catch (error) {
+          // Error notification is handled within matchTextWithAI
+          console.error("Error during manual AI extraction:", error);
+        } finally {
+          $('#aiExtractTextButton').removeClass('loading');
+        }
       }
     },
   };

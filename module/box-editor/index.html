@@ -135,6 +135,14 @@
           <div class="ui popup">
             <span>Toggle automatic OCR predictions</span>
           </div>
+          <!-- AI Text Selection Toggle -->
+          <button id="aiTextSelectionToggle" name="interface.toolbarActions.aiTextSelection"
+            class="ui compact icon toggle button tooltip-trigger" tabindex="0" title="Toggle AI text selection">
+            <i id="aiTextSelectionIcon" class="brain icon"></i>
+          </button>
+          <div class="ui popup">
+            <span>Toggle AI text selection from imported file</span>
+          </div>
           <div id="ocrModelDropdown" name="interface.toolbarActions.languageModelDropdown"
             class="ui floating disabled compact dropdown labeled search icon button tooltip-trigger" spellcheck="false"
             data-position="top left" title="Language model dropdown">
@@ -337,6 +345,11 @@
                 </span>
                 <i class="right chevron icon"></i>
               </button>
++             
++             <button id="aiExtractTextButton" class="ui disabled right labeled icon button" title="AI Extract Text">
++               <i class="brain icon"></i>
++               <span>AI Extract Text</span>
++             </button>
             </div>
             <div class="ui form">
               <div class="field">
@@ -516,6 +529,10 @@
           <span localization-key="settingsMenuSidebarHighlighterLabel">
             Highlighter
           </span>
+        </a>
+        <a id="aiSettingsTab" class="item" data-tab="ai-settings">
+          <i class="grey robot icon"></i>
+          <span>AI Settings</span>
         </a>
         <div class="ui divider"></div>
         <a id="helpTab" class="bottom attached item" data-tab="help-section">
@@ -1088,6 +1105,55 @@
                 value="1 colored sample here...">
             </div>
           </form>
+        </div>
+      </div>
+      <div id="aiSettingsTab" class="ui tab" data-tab="ai-settings">
+        <div class="ui very relaxed list">
+          <div class="item">
+            <div class="header">OpenAI API Configuration</div>
+            <div class="description">
+              Configure settings for using OpenAI to automatically match text from your imported file to box images.
+            </div>
+            <div class="ui form" style="margin-top: 1em;">
+              <div class="field">
+                <label for="openai-api-key">OpenAI API Key</label>
+                <div class="ui action input">
+                  <input type="password" id="openai-api-key" name="behavior.aiTextSelection.apiKey" placeholder="sk-...">
+                  <button class="ui icon button" id="toggle-api-key-visibility" aria-label="Toggle API key visibility">
+                    <i class="eye icon"></i>
+                  </button>
+                </div>
+                <div class="ui tiny message">
+                  <p>Your API key is stored only in your browser's local storage and is never sent to our servers.</p>
+                </div>
+              </div>
+              <div class="field">
+                <label for="openai-model">Model</label>
+                <select class="ui dropdown" id="openai-model" name="behavior.aiTextSelection.model" aria-label="OpenAI Model Selection">
+                  <option value="gpt-4-vision-preview">GPT-4 Vision</option>
+                  <option value="gpt-4o">GPT-4o</option>
+                </select>
+              </div>
+              <div class="field">
+                <label for="openai-system-prompt">System Prompt</label>
+                <textarea id="openai-system-prompt" name="behavior.aiTextSelection.systemPrompt" rows="5" aria-label="OpenAI System Prompt">You are a text-matching assistant. Your task is to find the text in the provided text block that corresponds to the text in the image. Only return the exact matching text from the provided text block, with no additional commentary. If you can't find a match, respond with NONE_FOUND.</textarea>
+              </div>
+            </div>
+          </div>
+          <div class="item">
+            <div class="header">AI Text Selection</div>
+            <div class="description">
+              When enabled, the application will use AI to automatically find and insert the correct text from your imported file when you select a box.
+            </div>
+            <div class="ui list">
+              <div class="item">
+                <div class="ui checkbox">
+                  <input type="checkbox" id="ai-text-selection-enabled" name="ai.textSelection.enabled">
+                  <label for="ai-text-selection-enabled">Enable AI text selection</label>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
       <div id="helpTab" class="ui tab" data-tab="help-section">
