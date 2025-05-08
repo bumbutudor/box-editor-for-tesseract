@@ -3473,7 +3473,60 @@ app.ready = async () => {
         
         const sessionId = documentFolderData?.sessionId;
         if (!sessionId) {
-          alert('Not in folder mode or no session ID available.');
+          // Single-file dataset: generate a zip with Dataset/images, Dataset/text, and metadata.csv
+          try {
+            const zip = new JSZip();
+            const baseFolder = zip.folder('Dataset');
+            const imagesFolder = baseFolder.folder('images');
+            const textFolder = baseFolder.folder('text');
+            const metadataLines = ['file_name,text'];
+            // Prepare offscreen canvas
+            const imgEl = image._image;
+            const offCanvas = document.createElement('canvas');
+            offCanvas.width = imgEl.naturalWidth;
+            offCanvas.height = imgEl.naturalHeight;
+            const offCtx = offCanvas.getContext('2d');
+            offCtx.drawImage(imgEl, 0, 0);
+            const safeBase = imageFileName.replace(/[^a-zA-Z0-9_.-]/g, '_');
+            let count = 0;
+            for (const box of boxData) {
+              const sx = Math.round(Math.min(box.x1, box.x2));
+              const sy = Math.round(imageHeight - Math.max(box.y1, box.y2));
+              const sw = Math.round(Math.abs(box.x2 - box.x1));
+              const sh = Math.round(Math.abs(box.y2 - box.y1));
+              if (sw <= 0 || sh <= 0) continue;
+              count++;
+              const num = count.toString().padStart(5, '0');
+              const imgName = `${safeBase}_line_${num}.png`;
+              const txtName = `${safeBase}_line_${num}.txt`;
+              // Crop region
+              const cropCanvas = document.createElement('canvas');
+              cropCanvas.width = sw;
+              cropCanvas.height = sh;
+              const cropCtx = cropCanvas.getContext('2d');
+              cropCtx.drawImage(offCanvas, sx, sy, sw, sh, 0, 0, sw, sh);
+              const blob = await new Promise(resolve => cropCanvas.toBlob(resolve, 'image/png'));
+              imagesFolder.file(imgName, blob);
+              textFolder.file(txtName, box.text || '');
+              const safeText = (box.text || '').replace(/"/g, '""');
+              metadataLines.push(`Dataset/images/${imgName},"${safeText}"`);
+            }
+            // Add metadata.csv
+            zip.file('metadata.csv', metadataLines.join('\n'));
+            const zipBlob = await zip.generateAsync({ type: 'blob' });
+            const url = URL.createObjectURL(zipBlob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.style.display = 'none';
+            a.download = `dataset_${safeBase}.zip`;
+            document.body.appendChild(a);
+            a.click();
+            URL.revokeObjectURL(url);
+            a.remove();
+          } catch (err) {
+            console.error('Error creating dataset zip:', err);
+            alert(`Error creating dataset: ${err.message}`);
+          }
           return;
         }
         
