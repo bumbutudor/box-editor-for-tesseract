@@ -262,7 +262,7 @@ app.ready = async () => {
         aiTextSelection: {
           enabled: false,
           apiKey: "",
-          model: "gpt-4-vision-preview",
+          model: "gpt-4o",
           systemPrompt: "You are a text-matching assistant. Your task is to find the text in the provided text block that corresponds to the text in the image. Only return the exact matching text from the provided text block, with no additional commentary. If you can't find a match, respond with NONE_FOUND."
         },
       },
