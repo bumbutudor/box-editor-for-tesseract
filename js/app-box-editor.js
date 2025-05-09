@@ -3991,7 +3991,7 @@ app.ready = async () => {
             },
             generation_config: { // Generation parameters for Gemini
               temperature: 0.4, 
-              max_output_tokens: 5000, // Increased from 800
+              max_output_tokens: 10000, // Increased from 800
               // topP, topK can be added here if needed
             }
           };
