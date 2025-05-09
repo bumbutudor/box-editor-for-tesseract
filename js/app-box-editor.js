@@ -261,7 +261,8 @@ app.ready = async () => {
         // AI text selection settings
         aiTextSelection: {
           enabled: false,
-          apiKey: "",
+          apiKey: "", // OpenAI API Key
+          geminiApiKey: "", // Google Gemini API Key
           model: "gpt-4o",
           // effort: "medium", // Removed as o4-mini likely doesn't support it
           systemPrompt: "You are a text-matching assistant. Your task is to find the text in the provided text block that corresponds to the text in the image. Only return the exact matching text from the provided text block, with no additional commentary. If you can't find a match, respond with NONE_FOUND."
@@ -2891,12 +2892,25 @@ app.ready = async () => {
         
         // Initialize OpenAI settings
         $('#openai-api-key').val(appSettings.behavior.aiTextSelection.apiKey);
+        $('#gemini-api-key').val(appSettings.behavior.aiTextSelection.geminiApiKey);
         $('#openai-model').val(appSettings.behavior.aiTextSelection.model);
         // $('#openai-effort-level').val(appSettings.behavior.aiTextSelection.effort || 'medium'); // Removed effort
         $('#openai-system-prompt').val(appSettings.behavior.aiTextSelection.systemPrompt);
         $('#ai-text-selection-enabled').prop('checked', appSettings.behavior.aiTextSelection.enabled);
         // Trigger change for model dropdown to set initial visibility of effort
         // $('#openai-model').trigger('change'); // No longer needed for effort field
+        // Add event listener for the Gemini API key visibility toggle
+        $('#toggle-gemini-api-key-visibility').on('click', function() {
+          const apiKeyInput = $('#gemini-api-key');
+          const icon = $(this).find('i');
+          if (apiKeyInput.attr('type') === 'password') {
+            apiKeyInput.attr('type', 'text');
+            icon.removeClass('eye').addClass('eye slash');
+          } else {
+            apiKeyInput.attr('type', 'password');
+            icon.removeClass('eye slash').addClass('eye');
+          }
+        });
       },
       popups: () => {
         $imageFileInputButton
@@ -3902,15 +3916,41 @@ app.ready = async () => {
       }
 
       try {
-        const apiKey = appSettings.behavior.aiTextSelection.apiKey;
-        if (!apiKey) {
-          handler.notifyUser({
-            title: 'AI Text Selection Error',
-            message: 'Please set your OpenAI API key in Settings > AI Settings.',
-            type: 'error',
-            class: 'error'
-          });
-          return null;
+        const selectedModel = appSettings.behavior.aiTextSelection.model;
+        let apiKey = "";
+        let apiEndpoint = "";
+        let payload = {};
+        let headers = {
+          'Content-Type': 'application/json',
+        };
+
+        if (selectedModel.startsWith('gemini-')) {
+          apiKey = appSettings.behavior.aiTextSelection.geminiApiKey;
+          if (!apiKey) {
+            handler.notifyUser({
+              title: 'Gemini API Key Missing',
+              message: 'Please set your Google Gemini API key in Settings > AI Settings.',
+              type: 'error',
+              class: 'error'
+            });
+            return null;
+          }
+          apiEndpoint = `https://generativelanguage.googleapis.com/v1beta/models/${selectedModel}:generateContent?key=${apiKey}`;
+          headers = {}; // For Gemini, API key is in URL, Content-Type still needed for fetch body
+
+        } else { // OpenAI models
+          apiKey = appSettings.behavior.aiTextSelection.apiKey;
+          if (!apiKey) {
+            handler.notifyUser({
+              title: 'OpenAI API Key Missing',
+              message: 'Please set your OpenAI API key in Settings > AI Settings.',
+              type: 'error',
+              class: 'error'
+            });
+            return null;
+          }
+          apiEndpoint = 'https://api.openai.com/v1/responses'; // Assuming OpenAI also uses this now
+          headers['Authorization'] = `Bearer ${apiKey}`;
         }
 
         const box = boxData.find(b => b.polyid === boxElement);
@@ -3934,59 +3974,68 @@ app.ready = async () => {
         
         const imageData = canvas.toDataURL('image/jpeg');
         const currentPageText = wordPages[currentWordPageIndex];
-        const selectedModel = appSettings.behavior.aiTextSelection.model;
         
-        const commonInput = [
-          {
-            role: "developer", // Using "developer" as per one of the /v1/responses examples for system-like message
-            content: [{ type: "input_text", text: appSettings.behavior.aiTextSelection.systemPrompt }]
-          },
-          {
-            role: "user",
-            content: [
-              { type: "input_text", text: `Find the matching text for this image in the following text block:\n\n${currentPageText}` },
-              { type: "input_image", image_url: imageData, detail: "high" } // Added detail: "high" as a good practice
-            ]
+        if (selectedModel.startsWith('gemini-')) {
+          payload = {
+            contents: [
+              {
+                role: "user", // Gemini uses 'user' and 'model' roles for contents
+                parts: [
+                  { text: `Find the matching text for this image in the following text block:\n\n${currentPageText}` },
+                  { inline_data: { mime_type: "image/jpeg", data: imageData.substring(imageData.indexOf(',') + 1) } } // Remove dataURL prefix
+                ]
+              }
+            ],
+            system_instruction: { // System prompt for Gemini (REST structure)
+              parts: [{text: appSettings.behavior.aiTextSelection.systemPrompt }]
+            },
+            generation_config: { // Generation parameters for Gemini
+              temperature: 0.4, 
+              max_output_tokens: 5000, // Increased from 800
+              // topP, topK can be added here if needed
+            }
+          };
+        } else { // OpenAI models (using /v1/responses endpoint)
+          const commonInput_openai = [
+            {
+              role: "developer", 
+              content: [{ type: "input_text", text: appSettings.behavior.aiTextSelection.systemPrompt }]
+            },
+            {
+              role: "user",
+              content: [
+                { type: "input_text", text: `Find the matching text for this image in the following text block:\n\n${currentPageText}` },
+                { type: "input_image", image_url: imageData, detail: "high" } 
+              ]
+            }
+          ];
+          payload = {
+            model: selectedModel,
+            input: commonInput_openai
+          };
+          if (selectedModel === 'gpt-4.1') {
+            payload.temperature = 1;
+            payload.max_output_tokens = 10000; 
+            payload.top_p = 1;
           }
-        ];
-
-        let payload = {
-          model: selectedModel,
-          input: commonInput
-        };
-
-        if (selectedModel === 'o4-mini') {
-          // No specific payload changes for o4-mini based on new understanding, beyond the common input structure
-          // Removed reasoning object
-        } else if (selectedModel === 'gpt-4.1') {
-          payload.temperature = 1;
-          payload.max_output_tokens = 10000; 
-          payload.top_p = 1;
-          // The /v1/responses API might also take a top-level 'text: { "format": { "type": "text" } }', etc.
-          // For now, keeping it simple with parameters known to work with typical generation models.
-        } else if (selectedModel === 'gpt-4o'){
-            // gpt-4o might still use the chat/completions endpoint and messages structure.
-            // For consistency now, let's try it with /v1/responses and input structure.
-            // If it fails, this part needs to be reverted or handled conditionally to use /v1/chat/completions
+          // o4-mini and gpt-4o use the base payload structure for /v1/responses for OpenAI
         }
-        
-        const apiEndpoint = 'https://api.openai.com/v1/responses';
 
         const response = await fetch(apiEndpoint, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${apiKey}`
+            ...headers // Spread the specific headers (Authorization for OpenAI, or empty for Gemini)
           },
           body: JSON.stringify(payload)
         });
         
         if (!response.ok) {
           const errorData = await response.json();
-          console.error('OpenAI API error:', errorData, 'Request Payload:', payload);
+          console.error('API error:', errorData, 'Request Model:', selectedModel, 'Request Payload:', payload);
           handler.notifyUser({
             title: 'AI Text Selection Error',
-            message: `Error from OpenAI API: ${errorData.error?.message || 'Unknown error'}`,
+            message: `Error from API (${selectedModel}): ${errorData.error?.message || 'Unknown error'}`,
             type: 'error',
             class: 'error'
           });
@@ -3994,32 +4043,80 @@ app.ready = async () => {
         }
         
         const data = await response.json();
-        let matchedText = "";
+        let matchedText = ""; // Initialize to empty string
 
-        if (data.output_text) {
-            matchedText = data.output_text.trim();
-        } else if (data.output && Array.isArray(data.output)) {
-            const assistantMessage = data.output.find(item => item.type === "message" && item.role === "assistant");
-            if (assistantMessage && assistantMessage.content && Array.isArray(assistantMessage.content)) {
-                const textContent = assistantMessage.content.find(cItem => cItem.type === "output_text");
-                if (textContent && textContent.text) {
-                    matchedText = textContent.text.trim();
-                }
+        if (selectedModel.startsWith('gemini-')) {
+          if (data.candidates &&
+              data.candidates.length > 0 &&
+              data.candidates[0].content &&
+              data.candidates[0].content.parts &&
+              data.candidates[0].content.parts.length > 0 &&
+              typeof data.candidates[0].content.parts[0].text === 'string') {
+            matchedText = data.candidates[0].content.parts[0].text.trim();
+
+            // Check for finishReason if text is empty
+            if (matchedText === "" && data.candidates[0].finishReason === "MAX_TOKENS") {
+              console.warn("Gemini response was empty due to MAX_TOKENS limit.", data);
+              handler.notifyUser({
+                title: 'AI Response Incomplete',
+                message: `Gemini (${selectedModel}) stopped due to token limit, resulting in empty text.`,
+                type: 'warning',
+                class: 'warning'
+              });
+              // MatchedText remains "", which will lead to returning null later
+            } else if (matchedText === "" && data.candidates[0].finishReason !== "STOP") {
+              // Potentially other non-STOP reasons leading to empty text
+              console.warn(`Gemini response was empty. Finish reason: ${data.candidates[0].finishReason}`, data);
+              // MatchedText remains "", which will lead to returning null later
             }
-        }
-
-        if (!matchedText) {
-            console.error('Could not extract text from OpenAI API response structure:', data);
-            handler.notifyUser({
-                title: 'AI Text Selection Error',
-                message: 'Could not extract text from OpenAI API response.',
+          } else {
+             // This 'else' means the response structure itself was invalid for Gemini
+             debugger; 
+             console.error('Could not extract text from Gemini API response structure (see details below):', data);
+             console.log(`Request Model: ${selectedModel}, Request Payload:`, payload);
+             handler.notifyUser({
+                title: 'AI Parsing Error (Gemini)',
+                message: 'Failed to parse structure of Gemini API response. Check console.',
                 type: 'error',
                 class: 'error'
             });
-            return null;
+             // matchedText will remain ""
+          }
+        } else { // OpenAI models
+          if (data.output_text) {
+              matchedText = data.output_text.trim();
+          } else if (data.output && Array.isArray(data.output)) {
+              const assistantMessage = data.output.find(item => item.type === "message" && item.role === "assistant");
+              if (assistantMessage && assistantMessage.content && Array.isArray(assistantMessage.content)) {
+                  const textContent = assistantMessage.content.find(cItem => cItem.type === "output_text");
+                  if (textContent && textContent.text) {
+                      matchedText = textContent.text.trim();
+                  }
+              }
+          }
+          // If matchedText is still "" here for OpenAI, the generic error below will catch it.
+          // Add more specific OpenAI error/structure checks here if needed in the future.
+        }
+
+        // Generic check for "no usable text obtained" after parsing attempts for ALL models
+        if (matchedText === "") { 
+            // If we're here and matchedText is empty, it means either:
+            // 1. Gemini structure was invalid (specific error already shown).
+            // 2. Gemini text was "" (possibly due to MAX_TOKENS, specific warning shown, or other reason).
+            // 3. OpenAI structure was invalid or text was empty (no specific OpenAI error shown yet in this path).
+            
+            // Avoid showing a double error if Gemini parsing already failed and showed a message.
+            // The `debugger;` line for Gemini structural failure is the primary indicator for that.
+            // If it's an OpenAI model and text is empty, or Gemini and text is empty for a reason NOT MAX_TOKENS
+            // (and not a structural parsing failure which would have hit the debugger), we might show a generic message.
+            // However, the current toast for MAX_TOKENS is a 'warning', so we might not need another error here.
+            // Let's refine this: only return null if text is empty. Specific notifications are handled above.
+            console.log(`Final matchedText is empty for model ${selectedModel}. Returning null.`);
+            return null; 
         }
         
         if (matchedText === 'NONE_FOUND') {
+          console.log(`AI model responded with NONE_FOUND for model ${selectedModel}.`);
           return null;
         }
         

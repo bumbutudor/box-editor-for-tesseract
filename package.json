@@ -29,6 +29,7 @@
     "node": ">=14.0.0"
   },
   "dependencies": {
+    "@google/genai": "^0.13.0",
     "archiver": "^7.0.1",
     "cors": "^2.8.5",
     "express": "^5.1.0",
