@@ -263,6 +263,7 @@ app.ready = async () => {
           enabled: false,
           apiKey: "",
           model: "gpt-4o",
+          // effort: "medium", // Removed as o4-mini likely doesn't support it
           systemPrompt: "You are a text-matching assistant. Your task is to find the text in the provided text block that corresponds to the text in the image. Only return the exact matching text from the provided text block, with no additional commentary. If you can't find a match, respond with NONE_FOUND."
         },
       },
@@ -2430,6 +2431,17 @@ app.ready = async () => {
             await handler.generate.initialBoxes(includeSuggestions = appSettings.behavior.onImageLoad.includeTextForDetectedLines);
           }
         }
+        // Remove event listener for model dropdown regarding effort, as effort is removed
+        // $('#openai-model').on('change', function() {
+        //   if ($(this).val() === 'o4-mini') {
+        //     $('#openai-effort-level-field').show();
+        //   } else {
+        //     $('#openai-effort-level-field').hide();
+        //   }
+        // });
+        // Trigger change on load to set initial visibility
+        // $('#openai-model').trigger('change'); // No longer needed to set initial visibility for effort
+
         handler.set.loadingState({ main: false, buttons: false });
         if (appSettings.behavior.onImageLoad.detectAllLines) {
           handler.focusGroundTruthField();
@@ -2859,22 +2871,32 @@ app.ready = async () => {
         if (localStorageValue) {
           try {
             localStorageSettings = JSON.parse(localStorageValue);
+            // Ensure new settings have defaults if not in localStorage
+            // Removed effort setting initialization
+            // if (!localStorageSettings.behavior?.aiTextSelection?.effort) {
+            //   if (!localStorageSettings.behavior) localStorageSettings.behavior = {};
+            //   if (!localStorageSettings.behavior.aiTextSelection) localStorageSettings.behavior.aiTextSelection = {};
+            //   localStorageSettings.behavior.aiTextSelection.effort = "medium";
+            // }
           } catch (error) {
             console.warn('Cannot parse localStorage', error);
-            localStorageSettings = { 'appVersion': undefined };
+            localStorageSettings = { 'appVersion': undefined }; // Removed effort from default
           } finally {
             handler.update.appSettings({ localStorage: localStorageSettings });
           }
         } else {
-          handler.update.appSettings({ localStorage: { appVersion: undefined } });
+          handler.update.appSettings({ localStorage: { appVersion: undefined } }); // Removed effort from default
           handler.update.settingsModal();
         }
         
         // Initialize OpenAI settings
         $('#openai-api-key').val(appSettings.behavior.aiTextSelection.apiKey);
         $('#openai-model').val(appSettings.behavior.aiTextSelection.model);
+        // $('#openai-effort-level').val(appSettings.behavior.aiTextSelection.effort || 'medium'); // Removed effort
         $('#openai-system-prompt').val(appSettings.behavior.aiTextSelection.systemPrompt);
         $('#ai-text-selection-enabled').prop('checked', appSettings.behavior.aiTextSelection.enabled);
+        // Trigger change for model dropdown to set initial visibility of effort
+        // $('#openai-model').trigger('change'); // No longer needed for effort field
       },
       popups: () => {
         $imageFileInputButton
@@ -3891,11 +3913,9 @@ app.ready = async () => {
           return null;
         }
 
-        // Get box coordinates and extract the image
         const box = boxData.find(b => b.polyid === boxElement);
         if (!box) return null;
 
-        // Create a canvas to capture the box content
         const canvas = document.createElement('canvas');
         const ctx = canvas.getContext('2d');
         const boxWidth = box.x2 - box.x1;
@@ -3904,58 +3924,66 @@ app.ready = async () => {
         canvas.width = boxWidth;
         canvas.height = boxHeight;
         
-        // Draw the specific part of the image to the canvas
         ctx.drawImage(
           image._image, 
-          box.x1, imageHeight - box.y2, // Source x, y
-          boxWidth, boxHeight, // Source width, height
-          0, 0, // Destination x, y
-          boxWidth, boxHeight // Destination width, height
+          box.x1, imageHeight - box.y2, 
+          boxWidth, boxHeight, 
+          0, 0, 
+          boxWidth, boxHeight 
         );
         
-        // Convert canvas to base64 data URL
         const imageData = canvas.toDataURL('image/jpeg');
-        
-        // Prepare the prompt with the current page text
         const currentPageText = wordPages[currentWordPageIndex];
+        const selectedModel = appSettings.behavior.aiTextSelection.model;
         
-        // Call OpenAI API
-        const response = await fetch('https://api.openai.com/v1/chat/completions', {
+        const commonInput = [
+          {
+            role: "developer", // Using "developer" as per one of the /v1/responses examples for system-like message
+            content: [{ type: "input_text", text: appSettings.behavior.aiTextSelection.systemPrompt }]
+          },
+          {
+            role: "user",
+            content: [
+              { type: "input_text", text: `Find the matching text for this image in the following text block:\n\n${currentPageText}` },
+              { type: "input_image", image_url: imageData, detail: "high" } // Added detail: "high" as a good practice
+            ]
+          }
+        ];
+
+        let payload = {
+          model: selectedModel,
+          input: commonInput
+        };
+
+        if (selectedModel === 'o4-mini') {
+          // No specific payload changes for o4-mini based on new understanding, beyond the common input structure
+          // Removed reasoning object
+        } else if (selectedModel === 'gpt-4.1') {
+          payload.temperature = 1;
+          payload.max_output_tokens = 10000; 
+          payload.top_p = 1;
+          // The /v1/responses API might also take a top-level 'text: { "format": { "type": "text" } }', etc.
+          // For now, keeping it simple with parameters known to work with typical generation models.
+        } else if (selectedModel === 'gpt-4o'){
+            // gpt-4o might still use the chat/completions endpoint and messages structure.
+            // For consistency now, let's try it with /v1/responses and input structure.
+            // If it fails, this part needs to be reverted or handled conditionally to use /v1/chat/completions
+        }
+        
+        const apiEndpoint = 'https://api.openai.com/v1/responses';
+
+        const response = await fetch(apiEndpoint, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${apiKey}`
           },
-          body: JSON.stringify({
-            model: appSettings.behavior.aiTextSelection.model,
-            messages: [
-              {
-                role: 'system',
-                content: appSettings.behavior.aiTextSelection.systemPrompt
-              },
-              {
-                role: 'user',
-                content: [
-                  {
-                    type: 'text',
-                    text: `Find the matching text for this image in the following text block:\n\n${currentPageText}`
-                  },
-                  {
-                    type: 'image_url',
-                    image_url: {
-                      url: imageData
-                    }
-                  }
-                ]
-              }
-            ],
-            max_tokens: 300
-          })
+          body: JSON.stringify(payload)
         });
         
         if (!response.ok) {
           const errorData = await response.json();
-          console.error('OpenAI API error:', errorData);
+          console.error('OpenAI API error:', errorData, 'Request Payload:', payload);
           handler.notifyUser({
             title: 'AI Text Selection Error',
             message: `Error from OpenAI API: ${errorData.error?.message || 'Unknown error'}`,
@@ -3966,9 +3994,31 @@ app.ready = async () => {
         }
         
         const data = await response.json();
-        const matchedText = data.choices[0].message.content.trim();
+        let matchedText = "";
+
+        if (data.output_text) {
+            matchedText = data.output_text.trim();
+        } else if (data.output && Array.isArray(data.output)) {
+            const assistantMessage = data.output.find(item => item.type === "message" && item.role === "assistant");
+            if (assistantMessage && assistantMessage.content && Array.isArray(assistantMessage.content)) {
+                const textContent = assistantMessage.content.find(cItem => cItem.type === "output_text");
+                if (textContent && textContent.text) {
+                    matchedText = textContent.text.trim();
+                }
+            }
+        }
+
+        if (!matchedText) {
+            console.error('Could not extract text from OpenAI API response structure:', data);
+            handler.notifyUser({
+                title: 'AI Text Selection Error',
+                message: 'Could not extract text from OpenAI API response.',
+                type: 'error',
+                class: 'error'
+            });
+            return null;
+        }
         
-        // Return null if no match was found
         if (matchedText === 'NONE_FOUND') {
           return null;
         }
@@ -4070,6 +4120,23 @@ app.ready = async () => {
           // disable all children
           onUnchecked: function () { $(this).closest('.item').siblings().find('.child').checkbox('set disabled'); }
         });
+      // Add event listener for the AI model dropdown to toggle effort level visibility
+      $('#openai-model').on('change', function() {
+        const selectedModel = $(this).val();
+        // Removed effort field visibility logic
+        // if (selectedModel === 'o4-mini') {
+        //   $('#openai-effort-level-field').show();
+        // } else {
+        //   $('#openai-effort-level-field').hide();
+        // }
+        appSettings.behavior.aiTextSelection.model = selectedModel;
+        handler.update.localStorage();
+      });
+      // Add event listener for the effort level dropdown
+      // $('#openai-effort-level').on('change', function() { // Removed effort field listener
+      //   appSettings.behavior.aiTextSelection.effort = $(this).val();
+      //   handler.update.localStorage();
+      // });
     },
     bindButtons: () => {
       $nextBoxButton.on('click', handler.getNextBoxContentAndFill);
