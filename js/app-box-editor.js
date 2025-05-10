@@ -4276,6 +4276,7 @@ app.ready = async () => {
       // Bind Auto Process All Boxes button
       $('#autoProcessAllBoxes').on('click', handler.ai.autoProcessAllBoxes);
       $('#aiExtractTextButton').on('click', handler.ai.extractTextForSelectedBox);
+      $('#stopAutoProcess').on('click', handler.ai.stopAutoProcess);
     },
     addBehaviors: () => {
       $groundTruthInputField.focus(() => $groundTruthColorizedOutput.addClass('focused'));
@@ -4442,31 +4443,42 @@ app.ready = async () => {
           $('#aiExtractTextButton').removeClass('loading');
         }
       },
-      // Automatically extract and submit AI text for all boxes on the current page
+      // Automatically extract and submit AI text for all boxes on the current page (supports stop)
       autoProcessAllBoxes: async () => {
+        // Initialize stop flag and update UI
+        handler.ai.autoProcessShouldStop = false;
+        $('#autoProcessAllBoxes').addClass('disabled loading');
+        $('#stopAutoProcess').removeClass('disabled');
+
         if (!appSettings.behavior.aiTextSelection.enabled) {
-          handler.notifyUser({
-            title: 'AI Text Selection Disabled',
-            message: 'Please enable AI Text Selection in the toolbar or settings.',
-            type: 'warning',
-            class: 'warning'
-          });
+          handler.notifyUser({ title: 'AI Text Selection Disabled', message: 'Please enable AI Text Selection.', type: 'warning', class: 'warning' });
+          $('#autoProcessAllBoxes').removeClass('disabled loading');
+          $('#stopAutoProcess').addClass('disabled');
           return;
         }
         if (!boxData || !boxData.length) {
-          handler.notifyUser({
-            title: 'No Boxes',
-            message: 'There are no boxes to process on this page.',
-            type: 'info'
-          });
+          handler.notifyUser({ title: 'No Boxes', message: 'There are no boxes to process.', type: 'info' });
+          $('#autoProcessAllBoxes').removeClass('disabled loading');
+          $('#stopAutoProcess').addClass('disabled');
           return;
         }
         for (const box of boxData) {
+          if (handler.ai.autoProcessShouldStop) {
+            handler.notifyUser({ title: 'Auto Process Stopped', message: 'Processing was stopped.', type: 'info' });
+            break;
+          }
           handler.focusBoxID(box.polyid, { zoom: false });
           await handler.ai.extractTextForSelectedBox();
           handler.submitText();
         }
-      }
+        // Restore UI state
+        $('#autoProcessAllBoxes').removeClass('disabled loading');
+        $('#stopAutoProcess').addClass('disabled');
+      },
+      // Stop the auto processing loop
+      stopAutoProcess: () => {
+        handler.ai.autoProcessShouldStop = true;
+      },
     },
   };
   const Keyboard = window.SimpleKeyboard.default;
