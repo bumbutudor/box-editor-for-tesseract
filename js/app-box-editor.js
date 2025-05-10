@@ -4462,7 +4462,12 @@ app.ready = async () => {
           $('#stopAutoProcess').addClass('disabled');
           return;
         }
-        for (const box of boxData) {
+        // Start from the currently selected box
+        const selectedIndex = selectedBox ? boxData.findIndex(b => b.polyid === selectedBox.polyid) : -1;
+        const boxesToProcess = selectedIndex >= 0
+          ? boxData.slice(selectedIndex).concat(boxData.slice(0, selectedIndex))
+          : boxData.slice();
+        for (const box of boxesToProcess) {
           if (handler.ai.autoProcessShouldStop) {
             handler.notifyUser({ title: 'Auto Process Stopped', message: 'Processing was stopped.', type: 'info' });
             break;
