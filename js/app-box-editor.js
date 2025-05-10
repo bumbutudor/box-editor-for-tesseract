@@ -3054,7 +3054,6 @@ app.ready = async () => {
           }
         }
         reader.readAsText(file);
-        file.name.split('.).slice(0, -1').join('.');
         boxFileNameForButton = file;
         $(reader).on('load', handler.process.boxFile);
         handler.set.loadingState({ main: false, buttons: false });
@@ -4274,6 +4273,8 @@ app.ready = async () => {
       $('#textFileInput').on('change', handler.load.textFile);
       $('#textPrevPage').on('click', handler.load.previousTextPage);
       $('#textNextPage').on('click', handler.load.nextTextPage);
+      // Bind Auto Process All Boxes button
+      $('#autoProcessAllBoxes').on('click', handler.ai.autoProcessAllBoxes);
       $('#aiExtractTextButton').on('click', handler.ai.extractTextForSelectedBox);
     },
     addBehaviors: () => {
@@ -4439,6 +4440,31 @@ app.ready = async () => {
           console.error("Error during manual AI extraction:", error);
         } finally {
           $('#aiExtractTextButton').removeClass('loading');
+        }
+      },
+      // Automatically extract and submit AI text for all boxes on the current page
+      autoProcessAllBoxes: async () => {
+        if (!appSettings.behavior.aiTextSelection.enabled) {
+          handler.notifyUser({
+            title: 'AI Text Selection Disabled',
+            message: 'Please enable AI Text Selection in the toolbar or settings.',
+            type: 'warning',
+            class: 'warning'
+          });
+          return;
+        }
+        if (!boxData || !boxData.length) {
+          handler.notifyUser({
+            title: 'No Boxes',
+            message: 'There are no boxes to process on this page.',
+            type: 'info'
+          });
+          return;
+        }
+        for (const box of boxData) {
+          handler.focusBoxID(box.polyid, { zoom: false });
+          await handler.ai.extractTextForSelectedBox();
+          handler.submitText();
         }
       }
     },
