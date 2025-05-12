@@ -803,26 +803,12 @@ app.ready = async () => {
       }
     },
     delete: {
-      box: box => {
-        const boxIndex = boxData.findIndex(object => object.equals(box));
+      box: polyid => { // Accept polyid instead of box object
+        const boxIndex = boxData.findIndex(b => b.polyid === polyid); // Find index using polyid
         if (boxIndex > -1) {
-          boxData.splice(boxIndex, 1);
+          boxData.splice(boxIndex, 1); // Remove from boxData
         }
-        const
-          newIndex = recognizedLinesOfText.findIndex(object => {
-            object = object.bbox;
-            const newBox = new Box({
-              text: '',
-              y1: imageHeight - object.y1, // bottom
-              y2: imageHeight - newBox.y0, // top
-              x1: object.x0, // right
-              x2: object.x1 // left
-            });
-            return newBox.x1 == box.x1 && newBox.y1 == box.y1 && newBox.x2 == box.x2 && newBox.y2 == box.y2;
-          });
-        if (newIndex > -1) {
-          recognizedLinesOfText.splice(newIndex, 1);
-        }
+        // Removed logic related to recognizedLinesOfText as it's likely irrelevant for this deletion path
         return boxIndex;
       },
       expiredNotifications: () => {
@@ -1234,35 +1220,35 @@ app.ready = async () => {
 
         documentBoxLayers[currentPageIndex] = new L.FeatureGroup();
 
-        const
-          zoomControl = new L.Control.Zoom({ position: 'topright' }),
-          drawControl = new L.Control.Draw({
-            draw: {
-              polygon: false,
-              marker: false,
-              circle: false,
-              polyline: true,
-              rectangle: true,
-              circlemarker: false
-            },
-            position: 'topright',
-            edit: {
-              featureGroup: documentBoxLayers[currentPageIndex],
-              edit: false,
-              remove: true
-            }
-          });
+        // Initialize map controls: zoom and draw
+        const zoomControl = new L.Control.Zoom({ position: 'topright' });
+        // Create and store drawControl on handler for later featureGroup updates
+        handler.drawControl = new L.Control.Draw({
+          draw: {
+            polygon: false,
+            marker: false,
+            circle: false,
+            polyline: true,
+            rectangle: true,
+            circlemarker: false
+          },
+          position: 'topright',
+          edit: {
+            featureGroup: documentBoxLayers[currentPageIndex],
+            edit: false,
+            remove: true
+          }
+        });
 
         map.addControl(zoomControl);
-        map.addControl(drawControl);
+        map.addControl(handler.drawControl);
 
         map.on('draw:deleted', (e) => {
           Object.keys(e.layers._layers)
             .forEach(element => {
               const
-                polyid = parseInt(element),
-                delbox = boxData.find(box => box.polyid == polyid),
-                delindex = handler.delete.box(delbox);
+                polyid = parseInt(element);
+              const delindex = handler.delete.box(polyid);
             });
           handler.update.progressBar({ type: 'tagging' });
         });
@@ -2372,7 +2358,29 @@ app.ready = async () => {
           }
           
           if (map) {
+            // Add the feature group for the new page
             map.addLayer(documentBoxLayers[newPageIndex]);
+            // Re-create the Draw control so its featureGroup is set to the current page's layer
+            if (handler.drawControl) {
+              map.removeControl(handler.drawControl);
+            }
+            handler.drawControl = new L.Control.Draw({
+              draw: {
+                polygon: false,
+                marker: false,
+                circle: false,
+                polyline: true,
+                rectangle: true,
+                circlemarker: false
+              },
+              position: 'topright',
+              edit: {
+                featureGroup: documentBoxLayers[newPageIndex],
+                edit: false,
+                remove: true
+              }
+            });
+            map.addControl(handler.drawControl);
           }
         } catch (error) {
           console.error('Eroare la gestionarea layerelor:', error);
