@@ -260,16 +260,22 @@
             <span localization-key="tooltipOcrModelDropdown"></span>
           </div>
         </div>
-        <div id="page-navigation-controls" class="ui right floated compact buttons" style="display: none;">
-          <button id="previousPage" name="interface.toolbarActions.previousPage" class="ui compact icon button" title="Previous page"><i
-              class="left chevron icon"></i></button>
-          <button id="currentPage" name="interface.toolbarActions.currentPage" class="ui button" title="Current page">
-            <span localization-key="pageNavigationCurrentPageLabel">
-              Page
-            </span>
-          </button>
-          <button id="nextPage" name="interface.toolbarActions.nextPage" class="ui compact icon button" title="Next page"><i
-              class="right chevron icon"></i></button>
+        <div id="page-navigation-controls" class="ui right floated" style="display: none;">
+          <div class="ui compact buttons">
+            <button id="previousPage" name="interface.toolbarActions.previousPage" class="ui compact icon button" title="Previous page">
+              <i class="left chevron icon"></i>
+            </button>
+            <button id="currentPage" name="interface.toolbarActions.currentPage" class="ui button" title="Current page">
+              <span localization-key="pageNavigationCurrentPageLabel">Page</span>
+            </button>
+            <button id="nextPage" name="interface.toolbarActions.nextPage" class="ui compact icon button" title="Next page">
+              <i class="right chevron icon"></i>
+            </button>
+          </div>
+          <div class="ui action input" style="display: inline-flex; margin-left: 0.5em; vertical-align: middle;">
+            <input type="number" id="pageNumberInput" min="1" placeholder="Page #" style="width: 4em;">
+            <button id="goToPage" class="ui button" title="Go to page">Go</button>
+          </div>
         </div>
       </div>
       <div id="main-edit-area" class="ui basic fitted vertical segment">

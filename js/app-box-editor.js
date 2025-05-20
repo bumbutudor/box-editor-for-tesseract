@@ -1689,6 +1689,7 @@ app.ready = async () => {
               .replace('${currentPage}', `${options.currentPage + 1}`)
               .replace('${totalPages}', `${options.totalPages}`)
           );
+          $('#pageNumberInput').attr('max', options.totalPages).val(options.currentPage + 1);
           // options.currentPage <= 1 ?
           //   $pageNavigationControlsPreviousButton.addClass('disabled') : $pageNavigationControlsPreviousButton.removeClass('disabled');
           // options.currentPage >= options.totalPages - 1 ?
@@ -2524,6 +2525,28 @@ app.ready = async () => {
             });
           });
         if (typeof nextPg !== 'string') _URL.revokeObjectURL(url2);
+        $groundTruthInputField.val('');
+        handler.destroy.positionSlider();
+        handler.destroy.progressBar();
+        handler.update.colorizedBackground();
+      },
+      goToPage: async (pageNumber) => {
+        if (!documentPages || documentPages.length === 0) return;
+        const pageIndex = parseInt(pageNumber, 10) - 1;
+        if (isNaN(pageIndex) || pageIndex < 0 || pageIndex >= documentPages.length) {
+          handler.notifyUser({ title: 'Invalid page number', message: `Page number must be between 1 and ${documentPages.length}.`, type: 'warning' });
+          return;
+        }
+        await handler.savePageData();
+        newPageIndex = pageIndex;
+        const targetPage = documentPages[newPageIndex];
+        const url = typeof targetPage === 'string' ? targetPage : _URL.createObjectURL(targetPage);
+        handler.load.image(url)
+          .then(img => handler.load.imageCallback(img, true))
+          .catch(error => {
+            console.error('Image load failed:', error);
+          });
+        if (typeof targetPage !== 'string') _URL.revokeObjectURL(url);
         $groundTruthInputField.val('');
         handler.destroy.positionSlider();
         handler.destroy.progressBar();
@@ -4285,6 +4308,16 @@ app.ready = async () => {
       $('#autoProcessAllBoxes').on('click', handler.ai.autoProcessAllBoxes);
       $('#aiExtractTextButton').on('click', handler.ai.extractTextForSelectedBox);
       $('#stopAutoProcess').on('click', handler.ai.stopAutoProcess);
+      $('#goToPage').on('click', () => {
+        const pageNum = $('#pageNumberInput').val();
+        handler.load.goToPage(pageNum);
+      });
+      $('#pageNumberInput').on('keypress', (event) => {
+        if (event.key === 'Enter') {
+          event.preventDefault();
+          handler.load.goToPage($('#pageNumberInput').val());
+        }
+      });
     },
     addBehaviors: () => {
       $groundTruthInputField.focus(() => $groundTruthColorizedOutput.addClass('focused'));
