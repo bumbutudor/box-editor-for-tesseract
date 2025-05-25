@@ -140,6 +140,7 @@ app.ready = async () => {
     $pageNavigationControlsCurrent = $('#currentPage'),
     $pageNavigationControlsCurrentTextLabel = $('#currentPage span'),
     $pageNavigationControlsNextButton = $('#nextPage'),
+    $toggleImageViewButton = $('#toggleImageViewButton'), // Selector for the new button
 
     // variables
     pressedModifiers = {},
@@ -186,7 +187,7 @@ app.ready = async () => {
     currentPageIndex = 0,
     newPageIndex = 0,
     folderFiles = [],
-    documentFolderData = null,
+    documentFolderData = null, // This will now be a general session ID holder, specific data in original/reference vars
     // Imported text pages from user file
     wordPages = [],
     currentWordPageIndex = 0,
@@ -213,6 +214,11 @@ app.ready = async () => {
     worker,
     virtualKeyboard,
     virtualKeyboardBackspacePressed = false,
+    currentImageViewType = 'original', // 'original' or 'reference'
+    originalDocumentFolderData = null, // To store data for the original image set
+    referenceDocumentFolderData = null, // To store data for the reference image set
+    originalDocumentPages = [], // Pages from the original image set
+    referenceDocumentPages = [], // Pages from the reference image set
 
     appSettings = {
       localStorageKey: 'appSettings-boxEditor',
@@ -2420,6 +2426,8 @@ app.ready = async () => {
           }
         }).then(() => {
           currentPageIndex = newPageIndex;
+          // Update documentPages based on current view type
+          documentPages = currentImageViewType === 'original' ? originalDocumentPages : referenceDocumentPages;
           if (documentBoxData[newPageIndex] && documentBoxData[newPageIndex].length !== 0) {
             if (boxData[0] != undefined) {
               handler.getBoxContent()
@@ -2475,12 +2483,13 @@ app.ready = async () => {
       previousPage: async () => {
         await handler.savePageData();
         // compare currentPageIndex with documentPages length
+        const currentPages = currentImageViewType === 'original' ? originalDocumentPages : referenceDocumentPages;
         if (currentPageIndex > 0) {
           newPageIndex = currentPageIndex - 1;
         } else {
-          newPageIndex = documentPages.length - 1;
+          newPageIndex = currentPages.length - 1;
         }
-        const prevPage = documentPages[newPageIndex];
+        const prevPage = currentPages[newPageIndex];
         const url = typeof prevPage === 'string' ? prevPage : _URL.createObjectURL(prevPage);
         handler.load.image(url)
           .then(img => handler.load.imageCallback(img, pdfPages = true))
@@ -2504,12 +2513,13 @@ app.ready = async () => {
       nextPage: async () => {
         await handler.savePageData();
         // compare currentPageIndex with documentPages length
-        if (currentPageIndex < documentPages.length - 1) {
+        const currentPages = currentImageViewType === 'original' ? originalDocumentPages : referenceDocumentPages;
+        if (currentPageIndex < currentPages.length - 1) {
           newPageIndex = currentPageIndex + 1;
         } else {
           newPageIndex = 0;
         }
-        const nextPg = documentPages[newPageIndex];
+        const nextPg = currentPages[newPageIndex];
         const url2 = typeof nextPg === 'string' ? nextPg : _URL.createObjectURL(nextPg);
         handler.load.image(url2)
           .then(img => handler.load.imageCallback(img, pdfPages = true))
@@ -2533,13 +2543,14 @@ app.ready = async () => {
       goToPage: async (pageNumber) => {
         if (!documentPages || documentPages.length === 0) return;
         const pageIndex = parseInt(pageNumber, 10) - 1;
-        if (isNaN(pageIndex) || pageIndex < 0 || pageIndex >= documentPages.length) {
-          handler.notifyUser({ title: 'Invalid page number', message: `Page number must be between 1 and ${documentPages.length}.`, type: 'warning' });
+        const currentPages = currentImageViewType === 'original' ? originalDocumentPages : referenceDocumentPages;
+        if (isNaN(pageIndex) || pageIndex < 0 || pageIndex >= currentPages.length) {
+          handler.notifyUser({ title: 'Invalid page number', message: `Page number must be between 1 and ${currentPages.length}.`, type: 'warning' });
           return;
         }
         await handler.savePageData();
         newPageIndex = pageIndex;
-        const targetPage = documentPages[newPageIndex];
+        const targetPage = currentPages[newPageIndex];
         const url = typeof targetPage === 'string' ? targetPage : _URL.createObjectURL(targetPage);
         handler.load.image(url)
           .then(img => handler.load.imageCallback(img, true))
@@ -3320,19 +3331,69 @@ app.ready = async () => {
           if (!event.target.files.length) return;
           handler.set.loadingState({ main: true, buttons: true });
           folderFiles = Array.from(event.target.files);
-          const sessionId = Date.now().toString();
+          const sessionId = documentFolderData?.sessionId || Date.now().toString(); // Reuse session or create new
           const formData = new FormData();
           formData.append('sessionId', sessionId);
           folderFiles.forEach(file => formData.append('files', file));
-          const response = await fetch(`/api/upload-folder?sessionId=${sessionId}`, { method: 'POST', body: formData });
+
+          const uploadType = event.target.id === 'originalFolderInput' ? 'original' : 'reference';
+          const response = await fetch(`/api/upload-folder?sessionId=${sessionId}&type=${uploadType}`, { method: 'POST', body: formData });
           const data = await response.json();
-          documentFolderData = data;
-          documentPages = data.images.map(img => `/api/get-image/${sessionId}/${encodeURIComponent(img.name)}`);
-          newPageIndex = 0;
-          const img = await handler.load.image(documentPages[0]);
-          await handler.load.imageCallback(img, false);
-          // Save empty page data for the initial folder page to prevent 404 errors
-          await handler.savePageData();
+
+          if (!documentFolderData) documentFolderData = { sessionId: data.sessionId }; // Initialize if first folder upload
+
+          if (uploadType === 'original') {
+            originalDocumentFolderData = data;
+            originalDocumentPages = data.images.map(img => `/api/get-image/${data.sessionId}/${uploadType}/${encodeURIComponent(img.name)}`);
+            if (currentImageViewType === 'original') {
+              documentPages = originalDocumentPages; // Update global documentPages
+            }
+          } else if (uploadType === 'reference') {
+            referenceDocumentFolderData = data;
+            referenceDocumentPages = data.images.map(img => `/api/get-image/${data.sessionId}/${uploadType}/${encodeURIComponent(img.name)}`);
+            if (currentImageViewType === 'reference') {
+              documentPages = referenceDocumentPages; // Update global documentPages
+            }
+          }
+
+          // If this is the first folder upload of any type, or current view type matches this upload,
+          // or if the original is uploaded and it's the current view type but the image isn't from that set yet
+          let loadThisUpload = false;
+          if (uploadType === 'original' && currentImageViewType === 'original') {
+            loadThisUpload = true;
+          } else if (uploadType === 'reference' && currentImageViewType === 'reference') {
+            loadThisUpload = true;
+          } else if (!originalDocumentPages.length && !referenceDocumentPages.length) { // Very first upload
+            loadThisUpload = true;
+            currentImageViewType = uploadType; // Set view to whatever was just uploaded
+            documentPages = uploadType === 'original' ? originalDocumentPages : referenceDocumentPages;
+          }
+
+
+          if (loadThisUpload) {
+            newPageIndex = 0;
+            currentPageIndex = 0; // Reset current page index for the newly loaded set
+            const currentDisplayPages = uploadType === 'original' ? originalDocumentPages : referenceDocumentPages;
+            if (currentDisplayPages.length > 0) {
+                const img = await handler.load.image(currentDisplayPages[0]);
+                await handler.load.imageCallback(img, false);
+                // Box data is associated with original images. If original is loaded, clear/reset.
+                // If reference is loaded, boxes for original should remain.
+                if (uploadType === 'original') {
+                    documentBoxData = []; // Reset box data for new original set
+                    documentBoxData[0] = [];
+                    boxData = [];
+                }
+                await handler.savePageData();
+            } else {
+                handler.update.imageNavigationControls({ currentPage: -1, totalPages: 0 });
+            }
+          }
+          
+          // Update navigation controls based on the currently active view type
+          const activePages = currentImageViewType === 'original' ? originalDocumentPages : referenceDocumentPages;
+          handler.update.imageNavigationControls({ currentPage: currentPageIndex, totalPages: activePages.length });
+
           // hide the upload modal now that folder is loaded
           $('#fileUploadModal').modal('hide');
         } catch (error) {
@@ -3640,14 +3701,16 @@ app.ready = async () => {
       boxFileContent: async (event) => {
         event?.preventDefault();
         var content = '';
+        // Box file content should always be generated from the original documentBoxData
         if (BoxFileType.WORDSTR === boxFileType) {
-          if (documentBoxData.length <= 1) {
-            documentBoxData[0] = boxData;
-          }
-          for (let page = 0; page < documentBoxData.length; ++page) {
-            for (const box of documentBoxData[page]) {
-              content = `${content}WordStr ${box.x1} ${box.y1} ${box.x2} ${box.y2} ${page} #${box.text}\n`;
-              content = `${content}\t ${box.x2 + 1} ${box.y1} ${box.x2 + 5} ${box.y2} ${page}\n`;
+          // documentBoxData should store box data per original page index
+          for (let page = 0; page < (originalDocumentPages?.length || 0); ++page) {
+            const currentPageBoxData = documentBoxData[page] || [];
+            if (currentPageBoxData.length > 0) {
+              for (const box of currentPageBoxData) {
+                content += `WordStr ${box.x1} ${box.y1} ${box.x2} ${box.y2} ${page} #${box.text}\n`;
+                content += `\t ${box.x2 + 1} ${box.y1} ${box.x2 + 5} ${box.y2} ${page}\n`;
+              }
             }
           }
         }
@@ -3656,18 +3719,14 @@ app.ready = async () => {
       groundTruthContent: async (event) => {
         event?.preventDefault();
         var content = '';
+        // Ground truth content should also be from original document data.
         if (BoxFileType.WORDSTR === boxFileType) {
-          if (documentBoxData.length <= 1) {
-            documentBoxData[0] = boxData;
-          }
-          for (let page = 0; page < documentBoxData.length; ++page) {
-            // Check if the page data exists and is not empty
-            if (documentBoxData[page] && documentBoxData[page].length > 0) {
+          for (let page = 0; page < (originalDocumentPages?.length || 0); ++page) {
+            const currentPageBoxData = documentBoxData[page] || [];
+            if (currentPageBoxData.length > 0) {
               content += `--- Start of Page ${page + 1} ---\n`;
-              for (const box of documentBoxData[page]) {
-                if (box) { // Check if the box exists
-                  content = `${content}${box.text}\n`;
-                }
+              for (const box of currentPageBoxData) {
+                content += `${box.text}\n`;
               }
               content += `--- End of Page ${page + 1} ---\n`;
             }
@@ -3759,61 +3818,171 @@ app.ready = async () => {
         }
         handler.update.progressBar({ reset: true });
         handler.set.loadingState({ buttons: true, main: true });
-        handler.map.fitImage();
-        documentBoxLayers[currentPageIndex].clearLayers();
-        boxData = [];
+        
+        // Determine which image to use for OCR
+        let ocrImageSourceUrl;
+        let ocrImageForDetection; // This will be the Image object for Tesseract
+
+        if (referenceDocumentPages && referenceDocumentPages.length > currentPageIndex) {
+          ocrImageSourceUrl = referenceDocumentPages[currentPageIndex];
+          console.log("Using reference image for OCR: ", ocrImageSourceUrl);
+        } else if (originalDocumentPages && originalDocumentPages.length > currentPageIndex) {
+          ocrImageSourceUrl = originalDocumentPages[currentPageIndex];
+          console.log("No reference image, using original for OCR: ", ocrImageSourceUrl);
+        } else {
+          handler.notifyUser({ title: 'No Image', message: 'No image available for OCR.', type: 'error' });
+          handler.set.loadingState({ buttons: false, main: false });
+          $redetectAllBoxesButton.removeClass('disabled double loading');
+          return false;
+        }
+
+        // Load the original image to fit map and for later box application context
+        // The currently displayed image (via global `image`) should be the original one if toggle isn't used yet, or if it's original view
+        // If currentImageViewType is reference, we still want to fit the original image for context if possible
+        const originalImageToFitUrl = (originalDocumentPages && originalDocumentPages.length > currentPageIndex) ? originalDocumentPages[currentPageIndex] : ocrImageSourceUrl;
+        if (originalImageToFitUrl !== image?._image?.src) { // only fit if it's not already the one displayed.
+            const imgToFit = await handler.load.image(originalImageToFitUrl);
+            if (imgToFit) {
+                 // Temporarily set for map fitting, but `image` should reflect current view
+                const tempOverlay = new L.imageOverlay(imgToFit.src, [[0, 0], [imgToFit.height, imgToFit.width]]);
+                map.fitBounds(tempOverlay.getBounds());
+            }
+        } else {
+            if(image) map.fitBounds(image.getBounds());
+        }
+
+
+        // Clear existing boxes for the current original page
+        if (documentBoxLayers[currentPageIndex]) {
+            documentBoxLayers[currentPageIndex].clearLayers();
+        } else {
+            documentBoxLayers[currentPageIndex] = new L.FeatureGroup();
+            if(map && handler.drawControl && handler.drawControl.options.edit.featureGroup !== documentBoxLayers[currentPageIndex]) {
+                map.removeControl(handler.drawControl);
+                handler.drawControl.options.edit.featureGroup = documentBoxLayers[currentPageIndex];
+                map.addControl(handler.drawControl);
+            } else if (map && !handler.drawControl) {
+                 // Recreate if missing
+            }
+        }
+        boxData = []; // This refers to the current page's boxes, which are for the original image
+        documentBoxData[currentPageIndex] = boxData;
+
+
         try {
-          const
-            results = await handler.ocr.detect(),
-            textLines = results.data.lines;
+          ocrImageForDetection = await handler.load.image(ocrImageSourceUrl);
+          if (!ocrImageForDetection) throw new Error("Failed to load image for OCR.");
+
+          const results = await worker.recognize(ocrImageForDetection);
+          const textLines = results.data.lines;
+
           if (!textLines.length) {
+            handler.notifyUser({ title: 'OCR Failed', message: 'No text lines detected.', type: 'warning' });
             handler.set.loadingState({ buttons: false, main: false });
+            $redetectAllBoxesButton.removeClass('disabled double loading');
             return false;
           }
 
           textLines.forEach(line => line.text = line.text.replace(/(\r\n|\n|\r)/gm, ""));
-          await handler.ocr.insertSuggestions(useSuggestions, textLines);
-          handler.focusBoxID(handler.getBoxContent().polyid);
-          handler.set.loadingState({ buttons: false, main: false });
-          handler.init.slider()
-          // boxDataInfo.setDirty(false);
+          
+          // Insert suggestions. Coordinates are from OCR (on ref/orig image).
+          // They are applied relative to the *original* image's dimensions.
+          // The `ocrImageActualHeight` for `insertSuggestions` should be the height of the image
+          // OCR was performed on (ocrImageForDetection.height).
+          // The `imageHeight` global used by `insertSuggestions` internally for display
+          // should be the original image's height if current view is original.
+          
+          // Ensure current view is original for applying boxes correctly
+          if (currentImageViewType !== 'original' && originalDocumentPages.length > 0) {
+              await handler.view.switchToOriginalView(false); // Switch view without full reload if possible, just for context
+          }
+          
+          // The third argument to insertSuggestions is the height of the image OCR was performed on.
+          await handler.ocr.insertSuggestions(useSuggestions, textLines, ocrImageForDetection.height); 
+          
+          if (boxData.length > 0) {
+            handler.focusBoxID(boxData[0].polyid);
+          } else {
+             // Clear form if no boxes were created
+             handler.update.form(new Box({ text: '', x1:0,y1:0,x2:0,y2:0,polyid:-1}));
+          }
+          handler.init.slider();
           handler.update.progressBar({ type: 'tagging' });
-        } catch (error) {
-          console.log(error);
-          handler.set.loadingState({ buttons: false, main: false });
-        }
 
-        $redetectAllBoxesButton.removeClass('disabled double loading');
+        } catch (error) {
+          console.error("Error during initial box generation:", error);
+          handler.notifyUser({ title: 'Error', message: 'Failed to generate initial boxes: ' + error.message, type: 'error' });
+        } finally {
+          handler.set.loadingState({ buttons: false, main: false });
+          $redetectAllBoxesButton.removeClass('disabled double loading');
+        }
       },
     },
     ocr: {
-      insertSuggestions: async (includeSuggestions, textLines) => {
-        documentBoxLayers[currentPageIndex].clearLayers();
-        boxData = [];
+      insertSuggestions: async (includeSuggestions, textLines, ocrImageActualHeight = imageHeight) => {
+        // `imageHeight` global should be the height of the *original* image if current view is original
+        // `ocrImageActualHeight` is the height of the image OCR was done on (e.g. reference image)
+
+        // Ensure the current featureGroup in drawControl is for the current original page index
+        if (map && handler.drawControl && documentBoxLayers[currentPageIndex] &&
+            handler.drawControl.options.edit.featureGroup !== documentBoxLayers[currentPageIndex]) {
+            map.removeControl(handler.drawControl);
+            handler.drawControl.options.edit.featureGroup = documentBoxLayers[currentPageIndex];
+            map.addControl(handler.drawControl);
+        } else if (map && !documentBoxLayers[currentPageIndex]) {
+            documentBoxLayers[currentPageIndex] = new L.FeatureGroup();
+            // Potentially re-init drawControl here if it was missing or misconfigured
+        }
+        
+        if(documentBoxLayers[currentPageIndex]) { // It should exist
+            documentBoxLayers[currentPageIndex].clearLayers(); // Clear previous boxes for this original page
+        }
+        boxData = []; // Reset boxData for the current original page
+
         for (const line of textLines) {
           const
             shape = line.bbox,
             text = includeSuggestions ? line.text : '',
+            // Coordinates from OCR are relative to the image it was performed on.
+            // Y-coordinates need to be inverted based on that image's height.
+            invertedY1 = ocrImageActualHeight - shape.y1,
+            invertedY0 = ocrImageActualHeight - shape.y0,
+
+            // Create the new Box object. These coordinates are now in the "original image" space
+            // assuming direct transfer or prior scaling.
             box = new Box({
               text: text,
               isModelGeneratedText: true,
               modelConfidenceScore: line.confidence,
-              x1: shape.x0, // right
-              y1: imageHeight - shape.y1, // bottom
-              x2: shape.x1, // left
-              y2: imageHeight - shape.y0, // top
-            }),
-            rectangle = new L.rectangle([[box.y1, box.x1], [box.y2, box.x2]]);
+              x1: shape.x0,
+              y1: invertedY1, // Bottom of box in Leaflet's CRS (bottom-left origin)
+              x2: shape.x1,
+              y2: invertedY0, // Top of box in Leaflet's CRS
+            });
+
+          // Create Leaflet rectangle. Leaflet also uses [lat,lng] with lat being y-like.
+          // For CRS.Simple, lat increases upwards. So y1 (smaller y from OCR) becomes smaller lat.
+          // y1 from OCR (top of bbox) -> imageHeight - y1 (bottom of bbox in Leaflet)
+          // y0 from OCR (bottom of bbox) -> imageHeight - y0 (top of bbox in Leaflet)
+          // Our Box object stores Leaflet-compatible coordinates already.
+          const rectangle = new L.rectangle([[box.y1, box.x1], [box.y2, box.x2]]);
           rectangle.on('edit', handler.editRectangle);
           rectangle.on('click', handler.selectRectangle);
           handler.style.remove(rectangle);
+          
+          if (!documentBoxLayers[currentPageIndex]) { // Should not happen if init properly
+              documentBoxLayers[currentPageIndex] = new L.FeatureGroup();
+          }
           documentBoxLayers[currentPageIndex].addLayer(rectangle);
           box.polyid = documentBoxLayers[currentPageIndex].getLayerId(rectangle);
-          boxData.push(box);
-          lineDataInfo.setDirty(true);
-          boxDataInfo.setDirty(true);
+          boxData.push(box); // Add to current page's boxData (for original image)
         }
-        map.addLayer(documentBoxLayers[currentPageIndex]);
+        // Associate the populated boxData with the original page's index in documentBoxData
+        documentBoxData[currentPageIndex] = boxData; 
+
+        if(map && documentBoxLayers[currentPageIndex]) map.addLayer(documentBoxLayers[currentPageIndex]);
+        lineDataInfo.setDirty(true); // Since new suggestions are added
+        boxDataInfo.setDirty(true);
       },
       detect: async (boxList = []) => {
         try {
@@ -4250,7 +4419,9 @@ app.ready = async () => {
       $coordinateFields.on('input', handler.update.boxCoordinates);
       $boxFileInput.on('change', handler.load.boxFile);
       $imageFileInput.on('change', handler.load.imageFile);
-      $folderInput.on('change', handler.load.folderUpload);
+      // $folderInput.on('change', handler.load.folderUpload); // Old single folder input
+      $('#originalFolderInput').on('change', handler.load.folderUpload); // Bind new original folder input
+      $('#referenceFolderInput').on('change', handler.load.folderUpload); // Bind new reference folder input
       $checkboxes.checkbox();
       $checkboxes.filter('.master')
         .checkbox({
@@ -4318,6 +4489,7 @@ app.ready = async () => {
           handler.load.goToPage($('#pageNumberInput').val());
         }
       });
+      $toggleImageViewButton.on('click', handler.view.toggleImageView); // Bind the new button
     },
     addBehaviors: () => {
       $groundTruthInputField.focus(() => $groundTruthColorizedOutput.addClass('focused'));
@@ -4332,7 +4504,9 @@ app.ready = async () => {
       handler.updateAITextSelectionButton();
       handler.addBehaviors();
       $imageFileInput.prop('disabled', false);
-      $folderInput.prop('disabled', false);
+      // $folderInput.prop('disabled', false); // Old single folder input
+      $('#originalFolderInput').prop('disabled', false); // Enable new original folder input
+      $('#referenceFolderInput').prop('disabled', false); // Enable new reference folder input
       boxDataInfo.setDirty(false);
       lineDataInfo.setDirty(false);
       handler.load.settings();
@@ -4525,6 +4699,148 @@ app.ready = async () => {
       stopAutoProcess: () => {
         handler.ai.autoProcessShouldStop = true;
       },
+    },
+    view: { // New view namespace for view-related functions
+        toggleImageView: async () => {
+            if (!originalDocumentPages.length && !referenceDocumentPages.length) {
+                handler.notifyUser({ title: 'No Images', message: 'Please upload original or reference images first.', type: 'info' });
+                return;
+            }
+
+            await handler.savePageData(); // Save current state before switching
+
+            let switchTo = '';
+            if (currentImageViewType === 'original') {
+                if (referenceDocumentPages.length > 0) {
+                    switchTo = 'reference';
+                } else {
+                    handler.notifyUser({ title: 'No Reference Images', message: 'No reference images uploaded to switch to.', type: 'warning' });
+                    return;
+                }
+            } else { // currentImageViewType === 'reference'
+                if (originalDocumentPages.length > 0) {
+                    switchTo = 'original';
+                } else {
+                    handler.notifyUser({ title: 'No Original Images', message: 'No original images uploaded to switch to.', type: 'warning' });
+                    return;
+                }
+            }
+            
+            currentImageViewType = switchTo;
+            documentPages = (currentImageViewType === 'original') ? originalDocumentPages : referenceDocumentPages;
+
+            if (currentImageViewType === 'reference') {
+                $toggleImageViewButton.addClass('blue');
+                handler.notifyUser({ title: 'View Switched', message: 'Displaying Reference Images.', type: 'info', time: 1500 });
+            } else {
+                $toggleImageViewButton.removeClass('blue');
+                handler.notifyUser({ title: 'View Switched', message: 'Displaying Original Images.', type: 'info', time: 1500 });
+            }
+            
+            // Ensure currentPageIndex is valid for the new set of pages
+            if (currentPageIndex >= documentPages.length) {
+                currentPageIndex = documentPages.length > 0 ? documentPages.length - 1 : 0;
+            }
+            if (currentPageIndex < 0 && documentPages.length > 0) currentPageIndex = 0; // Ensure not negative
+
+            newPageIndex = currentPageIndex; 
+
+            if (documentPages.length > 0 && documentPages[currentPageIndex]) {
+                const imageUrl = typeof documentPages[currentPageIndex] === 'string' ? documentPages[currentPageIndex] : _URL.createObjectURL(documentPages[currentPageIndex]);
+                const img = await handler.load.image(imageUrl);
+                await handler.load.imageCallback(img, false); // Reload image
+
+                // IMPORTANT: Boxes (boxData and documentBoxData[currentPageIndex]) are conceptually tied to the ORIGINAL image.
+                // When switching views, we need to re-render these boxes on the newly displayed image.
+                // The `imageCallback` re-initializes the draw layer for the current page.
+                // We need to ensure `documentBoxData[currentPageIndex]` (which holds boxes for the ORIGINAL image at this page number)
+                // is correctly re-added to the map.
+                // The `imageCallback` sets `boxData = documentBoxData[newPageIndex]` if it exists.
+                // This should work IF `documentBoxData` is always indexed by the original page index.
+                
+                // After imageCallback, re-apply boxes from documentBoxData for the *original* page index
+                // This ensures the same set of boxes (from the original image) are shown on either view.
+                // Note: imageCallback already attempts to load boxData from documentBoxData[newPageIndex]
+                // We just need to ensure `documentBoxData` is consistently managed.
+                // `boxData` is the array for the currently displayed *original* page's boxes.
+                // When we switch view, imageCallback will load boxData from documentBoxData[currentPageIndex for original].
+                
+                // Re-add all boxes from the (original) documentBoxData for the current page index
+                // This logic might be redundant if imageCallback handles it correctly, but explicit is safer.
+                if (documentBoxLayers[currentPageIndex]) {
+                    documentBoxLayers[currentPageIndex].clearLayers(); // Clear what imageCallback might have added
+                } else {
+                    documentBoxLayers[currentPageIndex] = new L.FeatureGroup();
+                }
+
+                const currentOriginalPageBoxes = documentBoxData[currentPageIndex] || [];
+                boxData = currentOriginalPageBoxes; // boxData should now reflect these.
+                
+                currentOriginalPageBoxes.forEach(b => {
+                    const rect = L.rectangle([[b.y1, b.x1], [b.y2, b.x2]]);
+                    rect.on('edit', handler.editRectangle);
+                    rect.on('click', handler.selectRectangle);
+                    handler.style.remove(rect, b.committed); // Style based on committed state
+                    documentBoxLayers[currentPageIndex].addLayer(rect);
+                    // Polyid might change if layers are cleared and re-added. Update it.
+                    b.polyid = documentBoxLayers[currentPageIndex].getLayerId(rect);
+                });
+                if (map) map.addLayer(documentBoxLayers[currentPageIndex]);
+
+
+                if (boxData.length > 0) {
+                    handler.focusBoxID(boxData[0].polyid, {zoom: false}); // Focus first box without aggressive zoom
+                } else {
+                     handler.update.form(new Box({ text: '', x1:0,y1:0,x2:0,y2:0,polyid:-1}));
+                }
+                handler.update.progressBar({ type: 'tagging' });
+                handler.init.slider();
+
+
+            } else { // No pages for the switched view type
+                if(map && image) map.removeLayer(image);
+                image = null;
+                if(documentBoxLayers[currentPageIndex]) documentBoxLayers[currentPageIndex].clearLayers();
+                boxData = [];
+                documentBoxData[currentPageIndex] = []; // Clear for this original index too if no viewable page
+                handler.update.form(new Box({ text: '', x1:0,y1:0,x2:0,y2:0,polyid:-1}));
+                handler.destroy.positionSlider();
+                handler.destroy.progressBar();
+                handler.update.colorizedBackground();
+            }
+            handler.update.imageNavigationControls({ currentPage: currentPageIndex, totalPages: documentPages.length });
+        },
+        // Helper to switch to original view context, e.g., before applying boxes
+        switchToOriginalView: async (doFullReload = true) => {
+            if (currentImageViewType === 'original') return; // Already original
+
+            if (originalDocumentPages.length > 0) {
+                currentImageViewType = 'original';
+                documentPages = originalDocumentPages;
+                $toggleImageViewButton.removeClass('blue');
+                if (doFullReload) {
+                    handler.notifyUser({ title: 'View Switched', message: 'Displaying Original Images.', type: 'info', time: 1500 });
+                     // Ensure currentPageIndex is valid
+                    if (currentPageIndex >= documentPages.length) {
+                        currentPageIndex = documentPages.length > 0 ? documentPages.length - 1 : 0;
+                    }
+                    newPageIndex = currentPageIndex;
+                    if (documentPages.length > 0 && documentPages[currentPageIndex]) {
+                        const imageUrl = typeof documentPages[currentPageIndex] === 'string' ? documentPages[currentPageIndex] : _URL.createObjectURL(documentPages[currentPageIndex]);
+                        const img = await handler.load.image(imageUrl);
+                        await handler.load.imageCallback(img, false);
+                    }
+                     handler.update.imageNavigationControls({ currentPage: currentPageIndex, totalPages: documentPages.length });
+                } else {
+                    // Just update globals, image variable might need specific handling by caller
+                    imageHeight = originalDocumentFolderData?.images[currentPageIndex]?.height || imageHeight; // Approx
+                    imageWidth = originalDocumentFolderData?.images[currentPageIndex]?.width || imageWidth; // Approx
+                }
+            } else {
+                // Cannot switch, no original pages
+                console.warn("Cannot switch to original view: No original pages loaded.");
+            }
+        },
     },
   };
   const Keyboard = window.SimpleKeyboard.default;

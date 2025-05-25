@@ -60,8 +60,9 @@ const folderStorage = multer.diskStorage({
     try {
       // Use query parameter first to reliably retrieve sessionId before multer parses body
       const sessionId = req.query.sessionId || req.body.sessionId || Date.now().toString();
-      const uploadDir = path.join(__dirname, 'uploads', sessionId);
-      debugLog(`Creating upload directory for session ${sessionId}: ${uploadDir}`);
+      const uploadType = req.query.type || 'general'; // 'original', 'reference', or 'general'
+      const uploadDir = path.join(__dirname, 'uploads', sessionId, uploadType); // Store in type-specific subfolder
+      debugLog(`Creating upload directory for session ${sessionId}, type ${uploadType}: ${uploadDir}`);
       fs.ensureDirSync(uploadDir);
       cb(null, uploadDir);
     } catch (error) {
@@ -645,10 +646,10 @@ app.get('/', (req, res) => {
 // New endpoint for folder uploads
 app.post('/api/upload-folder', (req, res) => {
   debugLog("Folder upload request received");
-  
-  // Add more debugging to understand the request
+  const uploadType = req.query.type || 'general'; // Get type from query
   console.log('Headers:', req.headers);
-  
+  console.log(`Upload type: ${uploadType}`);
+
   folderUpload(req, res, async (err) => {
     if (err) {
       console.error('Error uploading folder:', err);
@@ -682,7 +683,7 @@ app.post('/api/upload-folder', (req, res) => {
       const sessionId = req.query.sessionId || req.body.sessionId || Date.now().toString();
       debugLog(`Session ID: ${sessionId}`);
       
-      const uploadDir = path.join(__dirname, 'uploads', sessionId);
+      const uploadDir = path.join(__dirname, 'uploads', sessionId, uploadType);
       fs.ensureDirSync(uploadDir);
       
       // Categorize files
@@ -692,13 +693,14 @@ app.post('/api/upload-folder', (req, res) => {
       req.files.forEach(file => {
         const fileExtension = path.extname(file.originalname).toLowerCase();
         
-        // Get relative path for use in client
+        // Get relative path for use in client, including the type
         let relPath = '';
         try {
-          relPath = path.relative(path.join(__dirname, 'uploads'), file.path);
+          // The base for relative path is now 'uploads/<sessionId>'
+          relPath = path.join(uploadType, file.originalname);
         } catch (error) {
           console.error(`Error getting relative path for ${file.originalname}:`, error);
-          relPath = file.path; // Fallback
+          relPath = path.join(uploadType, file.originalname); // Fallback
         }
         
         const fileInfo = {
@@ -752,7 +754,7 @@ app.post('/api/upload-folder', (req, res) => {
               fs.ensureDirSync(processedDir);
               
               const outputBaseName = path.basename(file.name, fileExtension);
-              const outputPath = path.join(processedDir, `${sessionId}_${outputBaseName}.png`);
+              const outputPath = path.join(processedDir, `${sessionId}_${uploadType}_${outputBaseName}.png`);
               
               debugLog(`Processing TIFF: ${file.path} -> ${outputPath}`);
               
@@ -765,14 +767,15 @@ app.post('/api/upload-folder', (req, res) => {
               // Update the file info with processed data
               let processedRelPath = '';
               try {
-                processedRelPath = path.relative(path.join(__dirname, 'uploads'), outputPath);
+                // This relative path is tricky, let's ensure client reconstructs it fully or server provides full URL part
+                processedRelPath = path.join('processed', `${sessionId}_${uploadType}_${outputBaseName}.png`);
               } catch (error) {
                 console.error(`Error getting relative path for processed TIFF:`, error);
                 processedRelPath = outputPath; // Fallback
               }
               
               imageFiles[index].processedPath = outputPath;
-              imageFiles[index].relativePath = processedRelPath;
+              imageFiles[index].relativePath = processedRelPath; // This might need adjustment based on how client uses it
               imageFiles[index].isProcessed = true;
             } catch (error) {
               console.error(`Error processing TIFF file ${file.name}:`, error);
@@ -815,16 +818,17 @@ app.post('/api/upload-folder', (req, res) => {
 });
 
 // Add endpoint to retrieve an image by its path
-app.get('/api/get-image/:sessionId/:filename', (req, res) => {
+app.get('/api/get-image/:sessionId/:type/:filename', (req, res) => {
   try {
     const sessionId = req.params.sessionId;
+    const type = req.params.type;
     const filename = req.params.filename;
     
-    debugLog(`Image request for sessionId: ${sessionId}, filename: ${filename}`);
+    debugLog(`Image request for sessionId: ${sessionId}, type: ${type}, filename: ${filename}`);
     
     // Check for directory traversal attacks
-    if (filename.includes('..') || sessionId.includes('..')) {
-      console.error(`Suspicious path detected: ${sessionId}/${filename}`);
+    if (filename.includes('..') || sessionId.includes('..') || type.includes('..')) {
+      console.error(`Suspicious path detected: ${sessionId}/${type}/${filename}`);
       return res.status(403).json({ error: 'Invalid path' });
     }
     
@@ -832,32 +836,25 @@ app.get('/api/get-image/:sessionId/:filename', (req, res) => {
     const isOriginalTiff = ['.tif', '.tiff'].includes(fileExtension);
     const baseName = path.basename(filename, fileExtension);
     
-    // Try different possible locations for the file, prioritizing processed PNGs for TIFFs
     const possiblePaths = [];
     
     // For TIFF files, prioritize the processed PNG versions
     if (isOriginalTiff) {
-      // Path for processed TIFF files with session prefix
+      // Path for processed TIFF files with session and type prefix
+      possiblePaths.push(path.join(__dirname, 'processed', `${sessionId}_${type}_${baseName}.png`));
+      possiblePaths.push(path.join(__dirname, 'processed', `${sessionId}_${type}_${baseName.replace(/_/g, ' ')}.png`));
+      // Fallback without type (less likely but for safety)
       possiblePaths.push(path.join(__dirname, 'processed', `${sessionId}_${baseName}.png`));
-      
-      // Fallback processed path with spaces instead of underscores (some filenames have spaces replaced)
-      possiblePaths.push(path.join(__dirname, 'processed', `${sessionId}_${baseName.replace(/_/g, ' ')}.png`));
-      
-      // Fallback processed path without session prefix
-      possiblePaths.push(path.join(__dirname, 'processed', `${baseName}.png`));
-      
-      // Fallback processed path without session prefix and with spaces
-      possiblePaths.push(path.join(__dirname, 'processed', `${baseName.replace(/_/g, ' ')}.png`));
     }
     
-    // After trying processed versions of TIFFs, continue with the original paths
-    // Direct path in the session uploads folder
-    possiblePaths.push(path.join(__dirname, 'uploads', sessionId, filename));
-    
-    // Path in the main uploads folder (for backward compatibility)
-    possiblePaths.push(path.join(__dirname, 'uploads', filename));
-    
-    // Try each path
+    // Direct path in the session uploads folder with type
+    possiblePaths.push(path.join(__dirname, 'uploads', sessionId, type, filename));
+    // Fallback to general if type was 'general' or for old data.
+    if (type !== 'general') {
+        possiblePaths.push(path.join(__dirname, 'uploads', sessionId, 'general', filename));
+    }
+    possiblePaths.push(path.join(__dirname, 'uploads', sessionId, filename)); // Legacy check without type subdir
+
     for (const filePath of possiblePaths) {
       if (fs.existsSync(filePath)) {
         debugLog(`Found file at: ${filePath}`);
@@ -866,12 +863,13 @@ app.get('/api/get-image/:sessionId/:filename', (req, res) => {
     }
     
     // If we get here, the file wasn't found
-    debugLog(`File not found: ${sessionId}/${filename}`);
+    debugLog(`File not found: ${sessionId}/${type}/${filename}`);
     debugLog(`Tried paths: ${possiblePaths.join(', ')}`);
     
     return res.status(404).json({ 
       error: 'File not found',
       sessionId: sessionId,
+      type: type,
       filename: filename,
       triedPaths: possiblePaths
     });
@@ -884,26 +882,26 @@ app.get('/api/get-image/:sessionId/:filename', (req, res) => {
 // --- Save individual page box data ---
 app.post('/api/save-page-data', async (req, res) => {
   try {
-    const { sessionId, imageFileName, boxData } = req.body;
+    const { sessionId, imageFileName, boxData, imageType } = req.body;
     
     if (!sessionId || !imageFileName || boxData === undefined) {
       debugLog('Save page data error: Missing required parameters');
       return res.status(400).json({ error: 'Missing sessionId, imageFileName, or boxData' });
     }
     
-    debugLog(`[Page Data ${sessionId}] Saving data for page: ${imageFileName}, boxes: ${boxData.length}`);
-    
-    // Ensure session directory exists
-    const sessionDir = path.join(__dirname, 'uploads', sessionId);
+    // Box data should always be associated with the original image conceptually.
+    // The imageFileName here should refer to the original image's name.
+    const typeForStorage = 'original'; // Or determine based on client logic, but usually boxes are for originals.
+    debugLog(`[Page Data ${sessionId}] Saving data for page: ${imageFileName} (type: ${typeForStorage}), boxes: ${boxData.length}`);
+
+    const sessionDir = path.join(__dirname, 'uploads', sessionId, typeForStorage); // Save under 'original'
     fs.ensureDirSync(sessionDir);
-    
-    // Create a safe filename for the JSON file
-    const safeName = path.basename(imageFileName);
+
+    const safeName = path.basename(imageFileName); // Use the original image name
     const jsonPath = path.join(sessionDir, `${safeName}.boxes.json`);
-    
-    // Format the data for storage
-    const pageData = { 
-      imageName: safeName, 
+
+    const pageData = {
+      imageName: safeName,
       boxes: boxData,
       saved: new Date().toISOString()
     };
@@ -928,7 +926,8 @@ app.post('/api/save-page-data', async (req, res) => {
 app.get('/api/get-page-data/:sessionId/:imageFileName', async (req, res) => {
   const { sessionId, imageFileName } = req.params;
   const safeName = path.basename(imageFileName);
-  const jsonPath = path.join(__dirname, 'uploads', sessionId, `${safeName}.boxes.json`);
+  // Assume box data is stored with original images
+  const jsonPath = path.join(__dirname, 'uploads', sessionId, 'original', `${safeName}.boxes.json`);
   if (fs.existsSync(jsonPath)) {
     try {
       const data = await fs.readJson(jsonPath);
@@ -943,21 +942,26 @@ app.get('/api/get-page-data/:sessionId/:imageFileName', async (req, res) => {
 
 // Endpoint to process a folder of files after they've been uploaded
 app.post('/api/process-folder', async (req, res) => {
-  const { sessionId } = req.body;
+  const { sessionId, type } = req.body;
   
   if (!sessionId) {
     return res.status(400).json({ error: 'Session ID is required' });
   }
-  
+  if (!type) {
+    return res.status(400).json({ error: "Type ('original' or 'reference') is required" });
+  }
+
   try {
-    debugLog(`Processing folder for session ${sessionId}`);
+    debugLog(`Processing folder for session ${sessionId}, type ${type}`);
     
-    // Create the session directory if it doesn't exist
-    const sessionDir = path.join(__dirname, 'uploads', sessionId);
-    fs.ensureDirSync(sessionDir);
-    
-    // Get all files in the session directory
-    const files = fs.readdirSync(sessionDir);
+    const sessionTypedDir = path.join(__dirname, 'uploads', sessionId, type);
+    if (!fs.existsSync(sessionTypedDir)) {
+        debugLog(`Directory not found: ${sessionTypedDir}`);
+        return res.status(400).json({ error: `No files found for session ${sessionId}, type ${type}` });
+    }
+    fs.ensureDirSync(sessionTypedDir);
+
+    const files = fs.readdirSync(sessionTypedDir);
     debugLog(`Found ${files.length} files in session directory`);
     
     if (files.length === 0) {
@@ -969,7 +973,7 @@ app.post('/api/process-folder', async (req, res) => {
     const boxFiles = [];
     
     for (const file of files) {
-      const filePath = path.join(sessionDir, file);
+      const filePath = path.join(sessionTypedDir, file);
       const stats = fs.statSync(filePath);
       const ext = path.extname(file).toLowerCase();
       
@@ -1036,18 +1040,20 @@ app.get('/api/get-box-file/:sessionId/:imageFilename', (req, res) => {
   try {
     const { sessionId, imageFilename } = req.params;
     
-    // Make sure paths are safe
     if (sessionId.includes('..') || imageFilename.includes('..')) {
       return res.status(403).json({ error: 'Invalid path' });
     }
-    
-    const sessionDir = path.join(__dirname, 'uploads', sessionId);
-    
-    // Get the image name without extension
+
+    // Assume .box files are stored alongside original images
+    const sessionOriginalDir = path.join(__dirname, 'uploads', sessionId, 'original');
+
     const imageName = path.basename(imageFilename, path.extname(imageFilename));
-    
-    // Look for a matching box file
-    const files = fs.readdirSync(sessionDir);
+
+    if (!fs.existsSync(sessionOriginalDir)) {
+        return res.status(404).json({ error: 'Original images directory not found for session.' });
+    }
+    const files = fs.readdirSync(sessionOriginalDir);
+
     const boxFile = files.find(file => 
       file.endsWith('.box') && 
       (path.basename(file, '.box') === imageName || 
@@ -1059,7 +1065,7 @@ app.get('/api/get-box-file/:sessionId/:imageFilename', (req, res) => {
       return res.status(404).json({ error: 'Box file not found' });
     }
     
-    const boxFilePath = path.join(sessionDir, boxFile);
+    const boxFilePath = path.join(sessionOriginalDir, boxFile);
     const boxContent = fs.readFileSync(boxFilePath, 'utf8');
     
     res.type('text/plain').send(boxContent);
@@ -1079,15 +1085,13 @@ app.get('/api/download-final-dataset', async (req, res) => {
     return res.status(400).json({ error: 'Invalid sessionId.' });
   }
   try {
-    const sessionDir = path.join(__dirname, 'uploads', sessionId);
-    if (!fs.existsSync(sessionDir)) {
-      return res.status(404).json({ error: 'Session not found or no data stored.' });
+    const sessionOriginalDir = path.join(__dirname, 'uploads', sessionId, 'original'); // Dataset uses original images
+    if (!fs.existsSync(sessionOriginalDir)) {
+      return res.status(404).json({ error: 'Session not found or no original data stored.' });
     }
-    
-    // Enhanced logging
-    debugLog(`[Dataset ${sessionId}] Starting dataset generation`);
-    
-    // Prepare temp directories
+
+    debugLog(`[Dataset ${sessionId}] Starting dataset generation from original images`);
+
     const tempDir = path.join(__dirname, 'temp', `dataset_${sessionId}_${Date.now()}`);
     const imagesDir = path.join(tempDir, 'Dataset', 'images');
     const textDir   = path.join(tempDir, 'Dataset', 'text');
@@ -1101,14 +1105,14 @@ app.get('/api/download-final-dataset', async (req, res) => {
     let pagesProcessed = 0;
     
     // List all files in the session directory for debugging
-    const filesInSession = fs.readdirSync(sessionDir);
-    debugLog(`[Dataset ${sessionId}] Found ${filesInSession.length} files in session dir`);
+    const filesInOriginalDir = fs.readdirSync(sessionOriginalDir);
+    debugLog(`[Dataset ${sessionId}] Found ${filesInOriginalDir.length} files in original session dir`);
     
     // For each saved page JSON
-    for (const fileInDir of filesInSession) {
+    for (const fileInDir of filesInOriginalDir) {
       if (!fileInDir.endsWith('.boxes.json')) continue;
       
-      const boxJsonFilePath = path.join(sessionDir, fileInDir);
+      const boxJsonFilePath = path.join(sessionOriginalDir, fileInDir);
       debugLog(`[Dataset ${sessionId}] Processing JSON file: ${boxJsonFilePath}`);
       
       try {
@@ -1126,96 +1130,40 @@ app.get('/api/download-final-dataset', async (req, res) => {
           continue;
         }
         
-        // --- Enhanced Image Path Finding Logic ---
-        // Try multiple ways to find the image file
-        
-        // 1. Direct path with encoded name
-        let imagePath = path.join(sessionDir, origNameEncoded);
-        let foundImage = false;
-        
-        debugLog(`[Dataset ${sessionId}] Checking direct path with encoded name: ${imagePath}`);
-        if (fs.existsSync(imagePath)) {
-          debugLog(`[Dataset ${sessionId}] Image found directly with encoded name.`);
-          foundImage = true;
-        } 
-        
-        // 2. Direct path with decoded name
+        // --- Image Path Finding for Original Image ---
+        let imagePath = path.join(sessionOriginalDir, origNameEncoded); // Path to original image
+        let foundImage = fs.existsSync(imagePath);
+
         if (!foundImage) {
-          imagePath = path.join(sessionDir, origNameDecoded);
-          debugLog(`[Dataset ${sessionId}] Checking direct path with decoded name: ${imagePath}`);
-          if (fs.existsSync(imagePath)) {
-            debugLog(`[Dataset ${sessionId}] Image found directly with decoded name.`);
-            foundImage = true;
-          }
+            imagePath = path.join(sessionOriginalDir, origNameDecoded);
+            foundImage = fs.existsSync(imagePath);
         }
         
-        // 3. Check if the file exists with a sanitized filename (removing special chars)
-        if (!foundImage) {
-          const sanitizedName = origNameDecoded.replace(/[^a-zA-Z0-9.-]/g, '_');
-          imagePath = path.join(sessionDir, sanitizedName);
-          debugLog(`[Dataset ${sessionId}] Checking sanitized name: ${imagePath}`);
-          if (fs.existsSync(imagePath)) {
-            debugLog(`[Dataset ${sessionId}] Image found with sanitized name.`);
-            foundImage = true;
-          }
-        }
-        
-        // 4. Check processed directory for TIFF/PDF conversions
-        if (!foundImage) {
-          const baseName = path.basename(origNameDecoded, path.extname(origNameDecoded));
-          
-          // With session prefix
-          const processedPngName = `${sessionId}_${baseName}.png`;
-          let processedPngPath = path.join(__dirname, 'processed', processedPngName);
-          
-          debugLog(`[Dataset ${sessionId}] Checking processed path with session prefix: ${processedPngPath}`);
-          if (fs.existsSync(processedPngPath)) {
-            imagePath = processedPngPath;
-            debugLog(`[Dataset ${sessionId}] Found processed image with session prefix.`);
-            foundImage = true;
-          } 
-          
-          // Without session prefix
-          if (!foundImage) {
-            processedPngPath = path.join(__dirname, 'processed', `${baseName}.png`);
-            debugLog(`[Dataset ${sessionId}] Checking processed path without prefix: ${processedPngPath}`);
+        // If original image is TIFF, check processed for its PNG version (if server did that for display)
+        // but for cropping, we might need the original TIFF if Sharp handles it, or its primary PNG conversion
+        const fileExtensionOriginal = path.extname(origNameDecoded).toLowerCase();
+        if (['.tif', '.tiff'].includes(fileExtensionOriginal) && !foundImage) {
+            const baseNameOriginal = path.basename(origNameDecoded, fileExtensionOriginal);
+            // Check processed directory for a PNG version that might have been created for display
+            // Note: Cropping should ideally happen on the raw/original image.
+            // If sharp can handle the original TIFF directly, that's best.
+            // If not, we use its primary conversion.
+            // The /processed/ path might contain <sessionId>_<type>_<basename>.png
+            let processedPngPath = path.join(__dirname, 'processed', `${sessionId}_original_${baseNameOriginal}.png`);
             if (fs.existsSync(processedPngPath)) {
-              imagePath = processedPngPath;
-              debugLog(`[Dataset ${sessionId}] Found processed image without prefix.`);
-              foundImage = true;
+                imagePath = processedPngPath; // Use the PNG conversion of the original for cropping if original TIFF direct use is an issue
+                foundImage = true;
+                debugLog(`[Dataset ${sessionId}] Using processed PNG of original TIFF for cropping: ${imagePath}`);
             }
-          }
         }
-        
-        // 5. Last attempt - try to find any file with a similar name in the session directory
+
         if (!foundImage) {
-          debugLog(`[Dataset ${sessionId}] Trying fuzzy filename matching...`);
-          const baseNameDecoded = path.basename(origNameDecoded, path.extname(origNameDecoded));
-          
-          // Look for files that contain the base name
-          const possibleMatches = filesInSession.filter(f => 
-            !f.endsWith('.boxes.json') && 
-            (f.includes(baseNameDecoded) || baseNameDecoded.includes(path.basename(f, path.extname(f))))
-          );
-          
-          if (possibleMatches.length > 0) {
-            imagePath = path.join(sessionDir, possibleMatches[0]);
-            debugLog(`[Dataset ${sessionId}] Found potential match: ${possibleMatches[0]}`);
-            if (fs.existsSync(imagePath)) {
-              foundImage = true;
-              debugLog(`[Dataset ${sessionId}] Using fuzzy-matched file: ${imagePath}`);
-            }
-          }
-        }
-        
-        if (!foundImage) {
-          console.warn(`[Dataset ${sessionId}] Image file for "${origNameDecoded}" not found after all attempts. Skipping this page.`);
+          console.warn(`[Dataset ${sessionId}] Original image file for "${origNameDecoded}" not found. Skipping this page.`);
           continue;
         }
+        // --- End Image Path Finding ---
         
-        debugLog(`[Dataset ${sessionId}] Using image for cropping: ${imagePath}`);
-        // --- End Enhanced Image Path Finding ---
-        
+        debugLog(`[Dataset ${sessionId}] Using original image for cropping: ${imagePath}`);
         // Get image dimensions
         let metadata;
         try {

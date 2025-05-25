@@ -276,6 +276,12 @@
             <input type="number" id="pageNumberInput" min="1" placeholder="Page #" style="width: 6em;">
             <button id="goToPage" class="ui button" title="Go to page">Go</button>
           </div>
+          <button id="toggleImageViewButton" style="margin-left: 10px;" class="ui compact icon button tooltip-trigger" title="Toggle Image View">
+            <i class="exchange icon"></i>
+          </button>
+          <div class="ui popup">
+            <span localization-key="tooltipToggleImageView">Toggle between Original and Reference Image</span>
+          </div>
         </div>
       </div>
       <div id="main-edit-area" class="ui basic fitted vertical segment">
@@ -439,11 +445,19 @@
                         </label>
                       </div>
                       <div class="field">
-                        <label for="folderInput">Folder</label>
-                        <input class="ui invisible file input" type="file" disabled id="folderInput" name="folderInput" webkitdirectory directory multiple />
-                        <label for="folderInput" class="ui small fluid button" id="folderInputButton">
-                          <i class="folder icon"></i>
-                          Upload Folder
+                        <label for="originalFolderInput" localization-key="uploadFilesSectionOriginalFolderLabel">Original Images</label>
+                        <input class="ui invisible file input" type="file" disabled id="originalFolderInput" name="originalFolderInput" webkitdirectory directory multiple />
+                        <label for="originalFolderInput" class="ui small fluid button" id="originalFolderInputButton">
+                          <i class="folder open icon"></i>
+                          <span localization-key="uploadFilesSectionOriginalFolderButtonLabel">Upload Originals</span>
+                        </label>
+                      </div>
+                      <div class="field">
+                        <label for="referenceFolderInput" localization-key="uploadFilesSectionReferenceFolderLabel">Reference Images</label>
+                        <input class="ui invisible file input" type="file" disabled id="referenceFolderInput" name="referenceFolderInput" webkitdirectory directory multiple />
+                        <label for="referenceFolderInput" class="ui small fluid button" id="referenceFolderInputButton">
+                          <i class="images icon"></i>
+                          <span localization-key="uploadFilesSectionReferenceFolderButtonLabel">Upload References</span>
                         </label>
                       </div>
                     </div>
