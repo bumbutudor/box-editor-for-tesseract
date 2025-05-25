@@ -2338,7 +2338,7 @@ app.ready = async () => {
       }
     },
     load: {
-      imageCallback: async (img, pdfPages = false) => {
+      imageCallback: async (img, pdfPages = false, sample = false, skipProcessing = false) => {
         // console.log('Image loaded', img);
         if (!map) { 
           console.log('Map nu există încă, se creează acum');
@@ -3371,12 +3371,12 @@ app.ready = async () => {
 
 
           if (loadThisUpload) {
-            newPageIndex = 0;
+          newPageIndex = 0;
             currentPageIndex = 0; // Reset current page index for the newly loaded set
             const currentDisplayPages = uploadType === 'original' ? originalDocumentPages : referenceDocumentPages;
             if (currentDisplayPages.length > 0) {
                 const img = await handler.load.image(currentDisplayPages[0]);
-                await handler.load.imageCallback(img, false);
+          await handler.load.imageCallback(img, false);
                 // Box data is associated with original images. If original is loaded, clear/reset.
                 // If reference is loaded, boxes for original should remain.
                 if (uploadType === 'original') {
@@ -3384,7 +3384,7 @@ app.ready = async () => {
                     documentBoxData[0] = [];
                     boxData = [];
                 }
-                await handler.savePageData();
+          await handler.savePageData();
             } else {
                 handler.update.imageNavigationControls({ currentPage: -1, totalPages: 0 });
             }
@@ -3854,7 +3854,7 @@ app.ready = async () => {
 
         // Clear existing boxes for the current original page
         if (documentBoxLayers[currentPageIndex]) {
-            documentBoxLayers[currentPageIndex].clearLayers();
+        documentBoxLayers[currentPageIndex].clearLayers();
         } else {
             documentBoxLayers[currentPageIndex] = new L.FeatureGroup();
             if(map && handler.drawControl && handler.drawControl.options.edit.featureGroup !== documentBoxLayers[currentPageIndex]) {
@@ -3914,7 +3914,7 @@ app.ready = async () => {
           handler.notifyUser({ title: 'Error', message: 'Failed to generate initial boxes: ' + error.message, type: 'error' });
         } finally {
           handler.set.loadingState({ buttons: false, main: false });
-          $redetectAllBoxesButton.removeClass('disabled double loading');
+        $redetectAllBoxesButton.removeClass('disabled double loading');
         }
       },
     },
@@ -4547,54 +4547,49 @@ app.ready = async () => {
       }
 
       console.log(`[Client] savePageData: Entered. currentPageIndex: ${currentPageIndex}, Session ID: ${documentFolderData.sessionId}`);
-      // Log a shallow copy of documentFolderData for overview, and images array specifically
-      if (documentFolderData) {
-        console.log("[Client] savePageData: documentFolderData.sessionId:", documentFolderData.sessionId);
-        console.log("[Client] savePageData: documentFolderData.images (length):", documentFolderData.images ? documentFolderData.images.length : 'undefined/null');
-        // console.log("[Client] savePageData: documentFolderData.images (full):", JSON.parse(JSON.stringify(documentFolderData.images || [])));
-      } else {
-        console.error("[Client] savePageData: documentFolderData is null or undefined!");
+
+      // Use originalDocumentFolderData for box saving
+      if (!originalDocumentFolderData || !originalDocumentFolderData.images) {
+        console.log("[Client] savePageData: No original images data available. Skipping save.");
         return;
       }
-      
-      if (!documentFolderData.images || !Array.isArray(documentFolderData.images)) {
-          console.error("[Client] savePageData: documentFolderData.images is not an array or is missing!");
-          return;
+
+      if (!Array.isArray(originalDocumentFolderData.images)) {
+        console.error("[Client] savePageData: originalDocumentFolderData.images is not an array!");
+        return;
       }
-      if (currentPageIndex < 0 || currentPageIndex >= documentFolderData.images.length) {
-          console.error(`[Client] savePageData: currentPageIndex ${currentPageIndex} is out of bounds for images array (length ${documentFolderData.images.length})`);
-          return;
+      if (currentPageIndex < 0 || currentPageIndex >= originalDocumentFolderData.images.length) {
+        console.error(`[Client] savePageData: currentPageIndex ${currentPageIndex} is out of bounds for original images array (length ${originalDocumentFolderData.images.length})`);
+        return;
       }
 
-      const currentImageInfo = documentFolderData.images[currentPageIndex];
+      const currentImageInfo = originalDocumentFolderData.images[currentPageIndex];
       if (!currentImageInfo || typeof currentImageInfo !== 'object') {
-          console.error(`[Client] savePageData: currentImageInfo at index ${currentPageIndex} is not an object or is null/undefined. Value:`, currentImageInfo);
-          return;
+        console.error(`[Client] savePageData: currentImageInfo at index ${currentPageIndex} is invalid. Value:`, currentImageInfo);
+        return;
       }
-      
-      const pageNameForAPI = currentImageInfo.name; // This should be like "filename.tif"
 
-      if (typeof pageNameForAPI !== 'string' || pageNameForAPI.length === 0) {
-          console.error(`[Client] savePageData: pageNameForAPI (from currentImageInfo.name) is invalid for image at index ${currentPageIndex}. Value: '${pageNameForAPI}'. Full currentImageInfo:`, JSON.parse(JSON.stringify(currentImageInfo)));
-          return; 
+      const pageNameForAPI = currentImageInfo.name;
+      if (typeof pageNameForAPI !== 'string' || !pageNameForAPI) {
+        console.error(`[Client] savePageData: Invalid pageNameForAPI: '${pageNameForAPI}'`);
+        return;
       }
-      
+
       const encodedName = encodeURIComponent(pageNameForAPI);
-      
+
       try {
         await fetch('/api/save-page-data', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             sessionId: documentFolderData.sessionId,
-            imageFileName: encodedName, 
-            boxData: boxData 
+            imageFileName: encodedName,
+            boxData: boxData
           })
         });
-        console.log(`[Client] Successfully POSTed to /api/save-page-data for ${pageNameForAPI} (encoded: ${encodedName}). Session: ${documentFolderData.sessionId}, Boxes: ${boxData.length}`);
+        console.log(`[Client] Successfully POSTed to /api/save-page-data for ${pageNameForAPI}. Session: ${documentFolderData.sessionId}, Boxes: ${boxData.length}`);
       } catch (err) {
         console.error(`[Client] Failed to fetch /api/save-page-data for ${pageNameForAPI}. Error:`, err);
-        console.error(`[Client] Details - SessionId: ${documentFolderData.sessionId}, EncodedName: ${encodedName}, BoxData length: ${boxData.length}`);
       }
     },
     ai: {
@@ -4840,7 +4835,7 @@ app.ready = async () => {
                 // Cannot switch, no original pages
                 console.warn("Cannot switch to original view: No original pages loaded.");
             }
-        },
+      },
     },
   };
   const Keyboard = window.SimpleKeyboard.default;
