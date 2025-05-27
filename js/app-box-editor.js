@@ -3462,6 +3462,20 @@ app.ready = async () => {
         modified = handler.update.boxData(polyid, newData);
       handler.update.rectangle(polyid, newData);
 
+      // re-highlight page text based on all committed boxes
+      const $panel = $('#pageTextContent');
+      // remove all existing highlights
+      let html = $panel.html().replace(new RegExp('<span class=\"page-text-highlight\">(.*?)<\\/span>', 'g'), '$1');
+      $panel.html(html);
+      // apply highlights for all committed boxes
+      boxData.forEach(box => {
+        if (box.committed && box.text) {
+          const safe = escapeForRegExp(box.text);
+          const re = new RegExp(`(${safe})`, 'g');
+          $panel.html($panel.html().replace(re, '<span class=\"page-text-highlight\">$1</span>'));
+        }
+      });
+
       // if all boxes are committed then call download function
       if (boxData.every(box => box.committed)) {
         if (appSettings.behavior.workflow.autoDownloadBoxFileOnAllLinesComitted) {
@@ -4837,6 +4851,20 @@ app.ready = async () => {
             }
       },
     },
+    rehighlightPageText: function() {
+      const $panel = $('#pageTextContent');
+      // remove all existing highlights
+      let html = $panel.html().replace(new RegExp('<span class=\"page-text-highlight\">(.*?)<\\/span>', 'g'), '$1');
+      $panel.html(html);
+      // apply highlights for all committed boxes
+      boxData.forEach(box => {
+        if (box.committed && box.text) {
+          const safe = escapeForRegExp(box.text);
+          const re = new RegExp(`(${safe})`, 'g');
+          $panel.html($panel.html().replace(re, '<span class=\"page-text-highlight\">$1</span>'));
+        }
+      });
+    },
   };
   const Keyboard = window.SimpleKeyboard.default;
   availableShortcutActions = [
@@ -4914,3 +4942,16 @@ app.ready = async () => {
 
 // attach ready event
 $(document).ready(app.ready);
+
+// helper to escape strings for regex and highlight page text
+function escapeForRegExp(str) {
+  return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+function highlightPageText(text) {
+  if (!text) return;
+  const $panel = $('#pageTextContent');
+  const html   = $panel.html();
+  const safe   = escapeForRegExp(text);
+  const re     = new RegExp(`(${safe})`);
+  $panel.html(html.replace(re, '<span class="page-text-highlight">$1</span>'));
+}

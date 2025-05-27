@@ -7197,6 +7197,14 @@ div.ui.blue.empty.circular.label.text-highlighter {
   color: #1b1c1d;
 }
 
+.dark-theme .ui.ui.ui.teal.popup::before,
+.dark-theme .ui.teal.popup,
+[data-tooltip][data-inverted][data-variation~="teal"]::after,
+[data-tooltip][data-inverted][data-variation~="teal"]::before {
+  background: #6dffff;
+  color: #1b1c1d;
+}
+
 .dark-theme .ui.ui.ui.teal.loading.popup::before,
 .dark-theme .ui.teal.loading.popup {
   background: #00d3d3;
@@ -10730,8 +10738,7 @@ div.ui.blue.empty.circular.label.text-highlighter {
     .input
     > i.icon::before,
   .match-device .ui.secondary.elastic.loading.loading.loading > i.icon::before,
-  .match-device
-    .ui.secondary.loading.loading.loading.loading:not(.usual)::after,
+  .match-device .ui.secondary.loading.loading.loading.loading:not(.usual)::after,
   .match-device
     .ui.secondary.loading.loading.loading.loading
     .input
@@ -11969,12 +11976,6 @@ div.ui.blue.empty.circular.label.text-highlighter {
     .ui.ui.ui.ui[class*="tablet stackable"].table
     tr[class*="secondary marked"].left {
     box-shadow: 0 -1px 0 0 rgba(0, 0, 0, 0.1) inset, 0.2em 0 0 0 #545454 inset;
-  }
-
-  .match-device
-    .ui.ui.ui.ui[class*="tablet stackable"].table
-    tr[class*="secondary marked"].right {
-    box-shadow: 0 -1px 0 0 rgba(0, 0, 0, 0.1) inset, -0.2em 0 0 0 #545454 inset;
   }
 
   .match-device
@@ -13565,161 +13566,6 @@ div.ui.blue.empty.circular.label.text-highlighter {
   .match-device .ui.cards > .brown.card,
   .match-device .ui.brown.card {
     box-shadow: 0 1px 3px 0 #555, 0 2px 0 0 #d67c1c, 0 0 0 1px #555;
-  }
-
-  .match-device .ui.cards a.brown.card:hover,
-  .match-device .ui.brown.cards a.card:hover,
-  .match-device .ui.link.brown.cards .card:not(.icon):hover,
-  .match-device .ui.link.cards .brown.card:not(.icon):hover,
-  .match-device a.ui.brown.card:hover,
-  .match-device .ui.link.brown.card:hover {
-    box-shadow: 0 1px 3px 0 #555, 0 2px 0 0 #b0620f, 0 0 0 1px #555;
-  }
-
-  .match-device .ui.cards > .basic.brown.card,
-  .match-device .ui.basic.brown.cards > .card,
-  .match-device .ui.basic.cards > .brown.card,
-  .match-device .ui.basic.brown.card {
-    background: #a5673f;
-  }
-
-  .match-device .ui.cards a.basic.brown.card:hover,
-  .match-device .ui.basic.cards a.brown.card:hover,
-  .match-device .ui.basic.brown.cards a.card:hover,
-  .match-device .ui.link.cards .basic.brown.card:not(.icon):hover,
-  .match-device .ui.link.basic.brown.cards .card:not(.icon):hover,
-  .match-device .ui.link.basic.cards .brown.card:not(.icon):hover,
-  .match-device a.ui.basic.brown.card:hover,
-  .match-device .ui.link.basic.brown.card:hover {
-    background: #975b33;
-  }
-
-  .match-device .ui.grey.cards > .card,
-  .match-device .ui.cards > .grey.card,
-  .match-device .ui.grey.card {
-    box-shadow: 0 1px 3px 0 #555, 0 2px 0 0 #dcddde, 0 0 0 1px #555;
-  }
-
-  .match-device .ui.cards a.grey.card:hover,
-  .match-device .ui.grey.cards a.card:hover,
-  .match-device .ui.link.grey.cards .card:not(.icon):hover,
-  .match-device .ui.link.cards .grey.card:not(.icon):hover,
-  .match-device a.ui.grey.card:hover,
-  .match-device .ui.link.grey.card:hover {
-    box-shadow: 0 1px 3px 0 #555, 0 2px 0 0 #c2c4c5, 0 0 0 1px #555;
-  }
-
-  .match-device .ui.cards > .basic.grey.card,
-  .match-device .ui.basic.grey.cards > .card,
-  .match-device .ui.basic.cards > .grey.card,
-  .match-device .ui.basic.grey.card {
-    background: #767676;
-  }
-
-  .match-device .ui.cards a.basic.grey.card:hover,
-  .match-device .ui.basic.cards a.grey.card:hover,
-  .match-device .ui.basic.grey.cards a.card:hover,
-  .match-device .ui.link.cards .basic.grey.card:not(.icon):hover,
-  .match-device .ui.link.basic.grey.cards .card:not(.icon):hover,
-  .match-device .ui.link.basic.cards .grey.card:not(.icon):hover,
-  .match-device a.ui.basic.grey.card:hover,
-  .match-device .ui.link.basic.grey.card:hover {
-    background: #838383;
-  }
-
-  .match-device .ui.black.cards > .card,
-  .match-device .ui.cards > .black.card,
-  .match-device .ui.black.card {
-    box-shadow: 0 1px 3px 0 #555, 0 2px 0 0 #545454, 0 0 0 1px #555;
-  }
-
-  .match-device .ui.cards a.black.card:hover,
-  .match-device .ui.black.cards a.card:hover,
-  .match-device .ui.link.black.cards .card:not(.icon):hover,
-  .match-device .ui.link.cards .black.card:not(.icon):hover,
-  .match-device a.ui.black.card:hover,
-  .match-device .ui.link.black.card:hover {
-    box-shadow: 0 1px 3px 0 #555, 0 2px 0 0 #000000, 0 0 0 1px #555;
-  }
-
-  .match-device .ui.cards > .basic.black.card,
-  .match-device .ui.basic.black.cards > .card,
-  .match-device .ui.basic.cards > .black.card,
-  .match-device .ui.basic.black.card {
-    background: #1b1c1d;
-  }
-
-  .match-device .ui.cards a.basic.black.card:hover,
-  .match-device .ui.basic.cards a.black.card:hover,
-  .match-device .ui.basic.black.cards a.card:hover,
-  .match-device .ui.link.cards .basic.black.card:not(.icon):hover,
-  .match-device .ui.link.basic.black.cards .card:not(.icon):hover,
-  .match-device .ui.link.basic.cards .black.card:not(.icon):hover,
-  .match-device a.ui.basic.black.card:hover,
-  .match-device .ui.link.basic.black.card:hover {
-    background: #27292a;
-  }
-
-  .match-device .ui.cards > .card,
-  .match-device .ui.card {
-    background: #1b1c1d;
-    box-shadow: 0 1px 3px 0 #555, 0 0 0 1px #555;
-  }
-
-  .match-device .ui.cards > .card > .content,
-  .match-device .ui.card > .content {
-    border-top: 1px solid rgba(255, 255, 255, 0.15);
-  }
-
-  .match-device .ui.cards > .card > .content > .header,
-  .match-device .ui.card > .content > .header {
-    color: rgba(255, 255, 255, 0.9);
-  }
-
-  .match-device .ui.cards > .card > .content > a.header,
-  .match-device .ui.card > .content > a.header {
-    color: rgba(255, 255, 255, 0.9);
-  }
-
-  .match-device .ui.cards > .card > .content > a.header:hover,
-  .match-device .ui.card > .content > a.header:hover {
-    color: #1e70bf;
-  }
-
-  .match-device .ui.cards > .card > .content > .description,
-  .match-device .ui.card > .content > .description {
-    color: rgba(255, 255, 255, 0.8);
-  }
-
-  .match-device .ui.cards > .card .meta,
-  .match-device .ui.card .meta {
-    color: rgba(255, 255, 255, 0.7);
-  }
-
-  .match-device .ui.cards > .card .meta > a:not(.ui),
-  .match-device .ui.card .meta > a:not(.ui) {
-    color: rgba(255, 255, 255, 0.7);
-  }
-
-  .match-device .ui.cards > .card .meta > a:not(.ui):hover,
-  .match-device .ui.card .meta > a:not(.ui):hover {
-    color: #ffffff;
-  }
-
-  .match-device .ui.cards > .card > .extra,
-  .match-device .ui.card > .extra {
-    border-top: 1px solid rgba(255, 255, 255, 0.15) !important;
-    color: rgba(255, 255, 255, 0.7);
-  }
-
-  .match-device .ui.cards > .card > .extra a:not(.ui),
-  .match-device .ui.card > .extra a:not(.ui) {
-    color: rgba(255, 255, 255, 0.5);
-  }
-
-  .match-device .ui.cards > .card > .extra a:not(.ui):hover,
-  .match-device .ui.card > .extra a:not(.ui):hover {
-    color: #1e70bf;
   }
 
   .match-device .ui.cards a.card:hover,
