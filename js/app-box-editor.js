@@ -3470,7 +3470,12 @@ app.ready = async () => {
       // apply highlights for all committed boxes
       boxData.forEach(box => {
         if (box.committed && box.text) {
-          const safe = escapeForRegExp(box.text);
+          // normalize text: trim hyphens or spaces at ends and allow hyphen or space inside
+          let coreText = box.text.trim().replace(/^[-\s]+|[-\s]+$/g, '');
+          let safe = escapeForRegExp(coreText)
+            // allow hyphen or space for '-' or ' ' in text
+            .replace(/\\-/g, '[- ]')
+            .replace(/ /g, '[- ]');
           const re = new RegExp(`(${safe})`, 'g');
           $panel.html($panel.html().replace(re, '<span class=\"page-text-highlight\">$1</span>'));
         }
@@ -4859,7 +4864,12 @@ app.ready = async () => {
       // apply highlights for all committed boxes
       boxData.forEach(box => {
         if (box.committed && box.text) {
-          const safe = escapeForRegExp(box.text);
+          // normalize text: trim hyphens or spaces at ends and allow hyphen or space inside
+          let coreText = box.text.trim().replace(/^[-\s]+|[-\s]+$/g, '');
+          let safe = escapeForRegExp(coreText)
+            // allow hyphen or space for '-' or ' ' in text
+            .replace(/\\-/g, '[- ]')
+            .replace(/ /g, '[- ]');
           const re = new RegExp(`(${safe})`, 'g');
           $panel.html($panel.html().replace(re, '<span class=\"page-text-highlight\">$1</span>'));
         }
@@ -4945,7 +4955,8 @@ $(document).ready(app.ready);
 
 // helper to escape strings for regex and highlight page text
 function escapeForRegExp(str) {
-  return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  // escape regex metacharacters: . * + ? ^ $ { } ( ) | [ ] \ and -
+  return str.replace(/[.*+?^${}()|[\]\\-]/g, '\\$&');
 }
 function highlightPageText(text) {
   if (!text) return;
