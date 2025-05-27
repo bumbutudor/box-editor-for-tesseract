@@ -3474,8 +3474,9 @@ app.ready = async () => {
           let coreText = box.text.trim().replace(/^[-\s]+|[-\s]+$/g, '');
           let safe = escapeForRegExp(coreText)
             // allow hyphen or space for '-' or ' ' in text
-            .replace(/\\-/g, '[- ]')
-            .replace(/ /g, '[- ]');
+            .replace(/\\-/g, '[-\\s]')
+            // treat spaces as optional whitespace (match zero or more spaces)
+            .replace(/ /g, '\\s*');
           const re = new RegExp(`(${safe})`, 'g');
           $panel.html($panel.html().replace(re, '<span class=\"page-text-highlight\">$1</span>'));
         }
@@ -4868,8 +4869,9 @@ app.ready = async () => {
           let coreText = box.text.trim().replace(/^[-\s]+|[-\s]+$/g, '');
           let safe = escapeForRegExp(coreText)
             // allow hyphen or space for '-' or ' ' in text
-            .replace(/\\-/g, '[- ]')
-            .replace(/ /g, '[- ]');
+            .replace(/\\-/g, '[-\\s]')
+            // treat spaces as optional whitespace (match zero or more spaces)
+            .replace(/ /g, '\\s*');
           const re = new RegExp(`(${safe})`, 'g');
           $panel.html($panel.html().replace(re, '<span class=\"page-text-highlight\">$1</span>'));
         }
