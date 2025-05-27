@@ -3462,25 +3462,24 @@ app.ready = async () => {
         modified = handler.update.boxData(polyid, newData);
       handler.update.rectangle(polyid, newData);
 
-      // re-highlight page text based on all committed boxes
+      // re-highlight page text based on all committed boxes using raw text
       const $panel = $('#pageTextContent');
-      // remove all existing highlights
-      let html = $panel.html().replace(new RegExp('<span class=\"page-text-highlight\">(.*?)<\\/span>', 'g'), '$1');
-      $panel.html(html);
-      // apply highlights for all committed boxes
+      // use original imported text to avoid HTML/text discrepancies
+      const raw = (typeof currentWordPageIndex !== 'undefined' && wordPages[currentWordPageIndex] != null)
+        ? wordPages[currentWordPageIndex]
+        : $panel.text();
+      let highlighted = raw;
       boxData.forEach(box => {
         if (box.committed && box.text) {
-          // normalize text: trim hyphens or spaces at ends and allow hyphen or space inside
           let coreText = box.text.trim().replace(/^[-\s]+|[-\s]+$/g, '');
           let safe = escapeForRegExp(coreText)
-            // allow hyphen or space for '-' or ' ' in text
             .replace(/\\-/g, '[-\\s]')
-            // treat spaces as optional whitespace (match zero or more spaces)
             .replace(/ /g, '\\s*');
           const re = new RegExp(`(${safe})`, 'g');
-          $panel.html($panel.html().replace(re, '<span class=\"page-text-highlight\">$1</span>'));
+          highlighted = highlighted.replace(re, '<span class=\"page-text-highlight\">$1</span>');
         }
       });
+      $panel.html(highlighted);
 
       // if all boxes are committed then call download function
       if (boxData.every(box => box.committed)) {
@@ -4859,23 +4858,23 @@ app.ready = async () => {
     },
     rehighlightPageText: function() {
       const $panel = $('#pageTextContent');
-      // remove all existing highlights
-      let html = $panel.html().replace(new RegExp('<span class=\"page-text-highlight\">(.*?)<\\/span>', 'g'), '$1');
-      $panel.html(html);
+      // start from original imported text
+      const raw = (typeof currentWordPageIndex !== 'undefined' && wordPages[currentWordPageIndex] != null)
+        ? wordPages[currentWordPageIndex]
+        : $panel.text();
+      let highlighted = raw;
       // apply highlights for all committed boxes
       boxData.forEach(box => {
         if (box.committed && box.text) {
-          // normalize text: trim hyphens or spaces at ends and allow hyphen or space inside
           let coreText = box.text.trim().replace(/^[-\s]+|[-\s]+$/g, '');
           let safe = escapeForRegExp(coreText)
-            // allow hyphen or space for '-' or ' ' in text
             .replace(/\\-/g, '[-\\s]')
-            // treat spaces as optional whitespace (match zero or more spaces)
             .replace(/ /g, '\\s*');
           const re = new RegExp(`(${safe})`, 'g');
-          $panel.html($panel.html().replace(re, '<span class=\"page-text-highlight\">$1</span>'));
+          highlighted = highlighted.replace(re, '<span class=\\"page-text-highlight\\">$1</span>');
         }
       });
+      $panel.html(highlighted);
     },
   };
   const Keyboard = window.SimpleKeyboard.default;
