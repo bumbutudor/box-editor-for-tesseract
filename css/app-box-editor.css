@@ -1,0 +1,32 @@
+/* Navigation Controls Visibility Fix */
+#page-navigation-controls {
+  display: inline-block !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+  pointer-events: auto !important;
+  position: relative !important;
+  z-index: 1000 !important;
+}
+
+#page-navigation-controls button {
+  display: inline-block !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+  pointer-events: auto !important;
+}
+
+/* Make sure the navigation controls are visible even when parent containers might be hidden */
+.ui.segment:has(#page-navigation-controls),
+.ui.container:has(#page-navigation-controls),
+.ui.grid:has(#page-navigation-controls),
+.ui.column:has(#page-navigation-controls),
+#custom-controls {
+  overflow: visible !important;
+}
+
+/* Remove semantic UI page modals dimmer overlays after modal hide */
+.ui.dimmer.modals,
+.ui.dimmer.page,
+.ui.dimmer {
+  display: none !important;
+} 
